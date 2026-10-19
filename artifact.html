@@ -1,0 +1,29 @@
+<title>Drzazgi</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+  :root { --bg: #0b0a14; --frame: #181425; --glow: #141226; color-scheme: dark; }
+  html, body { height: 100%; background: var(--bg); overflow: hidden; }
+  body { margin: 0; }
+  #wrap {
+    position: fixed; inset: 0; box-sizing: border-box;
+    display: flex; align-items: center; justify-content: center;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: max(8px, env(safe-area-inset-top, 0px)) max(8px, env(safe-area-inset-bottom, 0px));
+    background: radial-gradient(ellipse at center, var(--glow) 0%, var(--bg) 70%);
+  }
+  canvas { display: block; image-rendering: pixelated; image-rendering: crisp-edges; cursor: none; outline: none; box-shadow: 0 0 0 2px var(--frame), 0 10px 40px rgba(0,0,0,.6); }
+</style>
+<div id="wrap"><canvas id="game" tabindex="0" aria-label="Gra Drzazgi"></canvas></div>
+<script src="js/core.js"></script>
+<script src="js/font.js"></script>
+<script src="js/gfx.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/parts.js"></script>
+<script src="js/render.js"></script>
+<script src="js/ship.js"></script>
+<script src="js/battle.js"></script>
+<script src="js/ai.js"></script>
+<script src="js/build.js"></script>
+<script src="js/screens.js"></script>
+<script src="js/main.js"></script>
