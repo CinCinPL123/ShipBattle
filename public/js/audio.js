@@ -27,9 +27,14 @@ const SFX = {
     this.mus.gain.value = Settings.music * 0.42;
     Ambience.volume();
   },
+  lx: 0, ly: 0, _g: 1,
+  // słuchacz = środek kamery; dźwięki w świecie cichną z odległością
+  listen(x, y) { this.lx = x; this.ly = y; },
   out(pan) {
-    if (pan === undefined || !this.ctx.createStereoPanner) return this.sfx;
-    const p = this.ctx.createStereoPanner(); p.pan.value = clamp(pan, -1, 1); p.connect(this.sfx); return p;
+    let dest = this.sfx;
+    if (this._g < 0.999) { const g = this.ctx.createGain(); g.gain.value = this._g; g.connect(dest); dest = g; }
+    if (pan === undefined || !this.ctx.createStereoPanner) return dest;
+    const p = this.ctx.createStereoPanner(); p.pan.value = clamp(pan, -1, 1); p.connect(dest); return p;
   },
   // szum przez filtr z opadającą obwiednią
   nz(o) {
@@ -62,15 +67,24 @@ const SFX = {
   play(name, o) {
     if (!this.ctx || this.ctx.state !== 'running' || this.muted) return;
     o = o || {};
+    let g = 1;
+    if (o.x !== undefined && o.y !== undefined) {
+      const d = Math.hypot(o.x - this.lx, o.y - this.ly);
+      if (d > 640) return;
+      g = Math.pow(1 - d / 640, 1.6);
+      if (g < 0.03) return;
+    }
     const now = this.ctx.currentTime, lim = LIMITS[name] || 0.03;
     if (this.last[name] && now - this.last[name] < lim) return;
     this.last[name] = now;
     const fn = SOUNDS[name];
+    this._g = g;
     if (fn) { try { fn(this, o); } catch (e) { /* ignoruj */ } }
+    this._g = 1;
   }
 };
-const LIMITS = { hover: 0.05, hit: 0.035, metal: 0.04, splash: 0.04, cannon: 0.03, tick: 0.2, place: 0.03, crackle: 0.08 };
-const panX = x => x === undefined ? undefined : (x / W * 2 - 1) * 0.75;
+const LIMITS = { hover: 0.05, hit: 0.035, metal: 0.04, splash: 0.04, cannon: 0.03, tick: 0.2, place: 0.03, crackle: 0.08, swivel: 0.05, coins: 0.06, barrel: 0.05 };
+const panX = x => x === undefined ? undefined : clamp((x - SFX.lx) / 320, -1, 1) * 0.75;
 
 const SOUNDS = {
   cannon(S, o) {
@@ -166,6 +180,39 @@ const SOUNDS = {
     S.nz({ type: 'lowpass', f0: 300, f1: 40, dur: 2.0, vol: 0.6, at: 0.4 });
   },
   repair(S) { S.tone({ wave: 'triangle', f0: 900, dur: 0.05, vol: 0.12 }); S.tone({ wave: 'triangle', f0: 1200, dur: 0.05, vol: 0.1, at: 0.06 }); },
+  swivel(S, o) {
+    const d = S.out(panX(o.x)), p = rand(0.9, 1.15);
+    S.nz({ type: 'bandpass', f0: 2200 * p, f1: 500, q: 1.2, dur: 0.18, vol: 0.45, dest: d });
+    S.tone({ wave: 'sine', f0: 240 * p, f1: 90, dur: 0.14, vol: 0.4, dest: d });
+  },
+  fireball(S, o) {
+    const d = S.out(panX(o.x));
+    S.nz({ type: 'lowpass', f0: 1800, f1: 160, dur: 0.6, vol: 0.7, dest: d });
+    S.nz({ type: 'bandpass', f0: 500, f1: 1400, q: 0.8, dur: 0.5, vol: 0.35, att: 0.05, dest: d });
+    S.tone({ wave: 'sine', f0: 95, f1: 40, dur: 0.4, vol: 0.7, dest: d });
+  },
+  chain(S, o) {
+    const d = S.out(panX(o.x));
+    for (let i = 0; i < 4; i++) S.tone({ wave: 'square', f0: 1400 + i * 120, dur: 0.03, vol: 0.05, at: 0.05 + i * 0.05, dest: d });
+  },
+  coins(S) { [1319, 1568, 2093].forEach((f, i) => S.tone({ wave: 'square', f0: f, dur: 0.07, vol: 0.055, at: i * 0.045 })); },
+  item(S) { [784, 988, 1175, 1568, 1976].forEach((f, i) => S.tone({ wave: 'triangle', f0: f, dur: 0.16, vol: 0.12, at: i * 0.06 })); },
+  ghost(S, o) {
+    const d = S.out(panX(o.x));
+    [220, 233, 330, 349].forEach((f, i) => S.tone({ wave: 'sine', f0: f, f1: f * 0.96, dur: 2.6, vol: 0.09, att: 0.6, hold: 1.6, at: i * 0.12, dest: d }));
+    S.nz({ type: 'bandpass', f0: 600, f1: 300, q: 4, dur: 2.4, vol: 0.2, att: 0.5, dest: d });
+  },
+  lightning(S, o) {
+    const d = S.out(panX(o.x));
+    S.nz({ type: 'highpass', f0: 1500, dur: 0.12, vol: 0.9, dest: d });
+    S.nz({ type: 'lowpass', f0: 900, f1: 50, dur: 2.2, vol: 0.9, at: 0.05, dest: d });
+  },
+  barrel(S, o) {
+    const d = S.out(panX(o.x));
+    S.nz({ type: 'bandpass', f0: 900, f1: 300, q: 1.1, dur: 0.3, vol: 0.6, dest: d });
+    for (let i = 0; i < 3; i++) S.nz({ type: 'highpass', f0: 2600, dur: 0.03, vol: 0.3, at: i * 0.04, dest: d });
+  },
+  shield(S, o) { S.tone({ wave: 'sine', f0: 1760, f1: 1320, dur: 0.25, vol: 0.12, dest: S.out(panX(o.x)) }); },
   ready(S) { [523, 659, 784, 1047].forEach((f, i) => S.tone({ wave: 'square', f0: f, dur: 0.12, vol: 0.07, at: i * 0.06 })); }
 };
 
@@ -324,6 +371,19 @@ const Music = {
       { inst: 'arp', wave: 'square', vol: 0.028, seq: seq([aDm, aBb, aF, aC].join(' ')), legato: 0.5 },
       { inst: 'bassm', wave: 'triangle', vol: 0.16, seq: seq('D2 - - - - - - - A#1 - - - - - - - F2 - - - - - - - C2 - - - - - - -'), legato: 0.95 },
       { inst: 'drum', seq: seq('. . H . . . H . . . H . . . H O'), vol: 0.6 }
+    ]
+  };
+  // Żegluga: spokojna szanta w D-dorian
+  const sl = ['D4 - - F4 A4 - - G4', 'F4 - E4 - D4 - - -', 'C4 - - E4 G4 - - F4', 'E4 - D4 - C4 - - -',
+    'D4 - - F4 A4 - - C5', 'D5 - C5 - A4 - - G4', 'F4 - - E4 D4 - C4 -', 'D4 - - - - - - -'].join(' ');
+  const sb = 'D2 - A2 - D3 - A2 - D2 - A2 - D3 - A2 - C2 - G2 - C3 - G2 - C2 - G2 - C3 - G2 -';
+  Music.songs.sea = {
+    bpm: 96, div: 2,
+    tracks: [
+      { inst: 'lead', wave: 'triangle', vol: 0.18, vib: true, seq: seq(rep('.', 64) + ' ' + sl), legato: 0.92, sus: 0.85 },
+      { inst: 'bass', wave: 'triangle', vol: 0.15, seq: seq(sb), legato: 0.8 },
+      { inst: 'arp', wave: 'square', vol: 0.02, seq: seq('D4 F4 A4 F4 D4 F4 A4 F4 D4 F4 A4 F4 D4 F4 A4 F4 C4 E4 G4 E4 C4 E4 G4 E4 C4 E4 G4 E4 C4 E4 G4 E4'), legato: 0.5 },
+      { inst: 'drum', seq: seq('K . . . H . . . K . . . H . . O'), vol: 0.45 }
     ]
   };
   // Zwycięstwo
