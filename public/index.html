@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Drzazgi</title>
+<meta name="description" content="Pixel-artowa gra morska multiplayer: otwarte morze, budowa okrętu, jedno życie.">
 <style>
   :root { --bg: #0b0a14; --frame: #181425; color-scheme: dark; }
   html, body { height: 100%; margin: 0; background: var(--bg); overflow: hidden; }
@@ -15,17 +16,26 @@
 <body>
 <div id="wrap"><canvas id="game" tabindex="0" aria-label="Gra Drzazgi"></canvas></div>
 <noscript>Ta gra wymaga JavaScriptu.</noscript>
-<script src="js/core.js"></script>
+<!-- wspólny kod: ten sam działa na serwerze -->
+<script src="shared/core.js"></script>
+<script src="shared/defs.js"></script>
+<script src="shared/design.js"></script>
+<script src="shared/sim/ship.js"></script>
+<script src="shared/sim/ai.js"></script>
+<script src="shared/sim/world.js"></script>
+<!-- klient -->
+<script src="js/engine.js"></script>
 <script src="js/font.js"></script>
 <script src="js/gfx.js"></script>
+<script src="js/water.js"></script>
 <script src="js/audio.js"></script>
-<script src="js/parts.js"></script>
 <script src="js/render.js"></script>
-<script src="js/ship.js"></script>
-<script src="js/battle.js"></script>
-<script src="js/ai.js"></script>
-<script src="js/build.js"></script>
-<script src="js/screens.js"></script>
+<script src="js/net.js"></script>
+<script src="js/shipview.js"></script>
+<script src="js/client.js"></script>
+<script src="js/hud.js"></script>
+<script src="js/yard.js"></script>
+<script src="js/scenes.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>

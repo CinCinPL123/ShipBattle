@@ -112,51 +112,26 @@ function buildIcons() {
   Icons.hammer = fromMap([
     '.xxxx.....', 'xeSSSx....', 'xeSSSSx...', '.xxeSSSx..', '...xxSx...', '....xdx...', '.....xdx..', '......xdx.', '.......xdx', '........xx'], C);
   Icons.medal = fromMap(['.rr.rr.', '..rRr..', '..xxx..', '.xgyyx.', 'xgyywgx', 'xggyggx', '.xgggx.', '..xxx..'], C);
+  Icons.crown = fromMap(['x.x.x.x', 'xyxgxyx', 'xgygygx', 'xgggggx', 'xrgBgrx', 'xxxxxxx'], C);
+  Icons.crownBig = fromMap(['.x..x..x.', 'xyx.xgx.x', 'xgyxyyxyx', 'xggyggygx', 'xgggggggx', 'xgrggBggx', 'xgggggggx', 'xxxxxxxxx'], C);
+  Icons.barrel = fromMap(['.kkkk.', 'kdbbdk', 'kssssk', 'kdbbdk', 'kssssk', 'kdbbdk', '.kkkk.'], C);
+  Icons.powder = fromMap(['.kkkk.', 'kdrrdk', 'kssssk', 'kdrrdk', 'kssssk', 'kdrrdk', '.kkkk.'], C);
+  Icons.chest = fromMap(['.kkkkkk.', 'kdbbbbdk', 'kssggssk', 'kdbyybdk', 'kdbbbbdk', '.kkkkkk.'], C);
+  Icons.gold = fromMap(['..kk..', '.kgyk.', 'kgyywk', 'kggygk', '.kook.'], C);
+  Icons.goldBig = fromMap(['...kk...', '..kgyk..', '.kgyywk.', 'kgyggyyk', 'kggyggok', '.kooook.'], C);
+  Icons.itemBox = fromMap(['kkkkkkk', 'kwwwwwk', 'kwkkkwk', 'kwkwkwk', 'kwkkkwk', 'kwwwwwk', 'kkkkkkk'], C);
+  Icons.ghost = fromMap(['..xxxx..', '.xGGGGx.', 'xGxGGxGx', 'xGGGGGGx', 'xGGxxGGx', 'xGGGGGGx', 'xGxGxGGx', '.x.x.xx.'], Object.assign({}, C, { G: PAL.ghost }));
+  Icons.merchant = fromMap(['..xx..', '.xgyx.', 'xgyywx', 'xgxxgx', 'xgyygx', '.xggx.', '..xx..'], C);
+  Icons.storm = fromMap(['..eeee..', '.eSSSSe.', 'eSSSSSSe', '.eeeeee.', '...yy...', '..yy....', '...y....'], C);
+  Icons.treasure = fromMap(['.kkkkkk.', 'kggggggk', 'kdbbbbdk', 'kdbyybdk', 'kdbbbbdk', '.kkkkkk.'], C);
+  Icons.port = fromMap(['..x..', '.xgx.', '..x..', 'xxgxx', '..g..', 'g.g.g', '.ggg.'], C);
+  Icons.skullS = fromMap(['.xxx.', 'xSSSx', 'xxSxx', 'xSSSx', '.xSx.'], C);
 }
-
-// ---------- morze ----------
-const Water = {
-  frames: [], N: 14, fps: 7, depth: null,
-  tones: ['#0b2c56', '#0f3e72', '#124e89', '#17609f', '#1d74b4'],
-  crest: '#3a98d4', foam: '#b8e4ff',
-  init() {
-    this.depth = new Float32Array(W * H);
-    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) this.depth[y * W + x] = Noise.fbm(x * 0.0065 + 11, y * 0.0095 + 5, 3);
-  },
-  genFrame(k) {
-    const [c, x] = makeCanvas(W, H);
-    const img = x.createImageData(W, H), d = img.data;
-    const t = k / this.N * TAU, ca = Math.cos(t), sa = Math.sin(t);
-    const tones = this.tones.map(hexRgb), crest = hexRgb(this.crest), foam = hexRgb(this.foam);
-    let i = 0;
-    for (let py = 0; py < H; py++) {
-      for (let px = 0; px < W; px++, i++) {
-        const dep = this.depth[i];
-        const n1 = Noise.v(px * 0.042 + ca * 1.7, py * 0.082 + sa * 1.7);
-        const n2 = Noise.v(px * 0.058 - sa * 1.4 + 40, py * 0.047 + ca * 1.4 + 17);
-        const v = dep * 0.6 + (n1 + n2) * 0.2 + (bayer(px, py) - 0.5) * 0.085;
-        let idx = Math.floor((v - 0.3) / 0.4 * 5);
-        idx = idx < 0 ? 0 : idx > 4 ? 4 : idx;
-        let col = tones[idx];
-        const rd = Math.abs(n1 - n2);
-        if (rd < 0.016 && v > 0.42) col = crest;
-        if (rd < 0.005 && n1 > 0.58) col = foam;
-        if (hash2(px * 7 + k, py * 13) > 0.9993) col = foam;
-        const o = i * 4;
-        d[o] = col[0]; d[o + 1] = col[1]; d[o + 2] = col[2]; d[o + 3] = 255;
-      }
-    }
-    x.putImageData(img, 0, 0);
-    return c;
-  },
-  frame(t) { return this.frames[Math.floor(t * this.fps) % this.frames.length]; },
-  draw(ctx, t) { ctx.drawImage(this.frame(t), 0, 0); }
-};
 
 // ---------- wyspy ----------
 function makeIsland(seed, r, kind) {
   const rng = mulberry32(seed);
-  const M = 10, S = Math.ceil((r + M) * 2 + 1);
+  const M = kind === 'port' ? 24 : 10, S = Math.ceil((r + M) * 2 + 1);
   const [c, x] = makeCanvas(S, S);
   const cx = S / 2, cy = S / 2;
   const p1 = rng() * TAU, p2 = rng() * TAU, p3 = rng() * TAU;
@@ -175,7 +150,7 @@ function makeIsland(seed, r, kind) {
         const h = 1 - q + lit * 0.25 + (nz - 0.5) * 0.3;
         set(i, j, q > 0.86 ? PAL.slate : h > 0.55 ? PAL.silver : h > 0.32 ? PAL.grey : h > 0.15 ? PAL.steel : PAL.slate);
       } else {
-        const gr = kind === 'palm' ? 0.66 + (nz - 0.5) * 0.18 : -1;
+        const gr = kind === 'palm' || kind === 'port' ? 0.66 + (nz - 0.5) * 0.18 : -1;
         if (q < gr) {
           const gh = lit * 0.4 + (nz - 0.5) * 0.6 + (bz - 0.5) * 0.35;
           set(i, j, q > gr - 0.07 ? PAL.greenDD : gh > 0.15 ? PAL.green : gh > -0.25 ? PAL.greenD : PAL.greenDD);
@@ -213,6 +188,7 @@ function makeIsland(seed, r, kind) {
       for (let k = -2; k <= 2; k++) { x.fillRect(tx + k, ty + k, 1, 1); x.fillRect(tx + k, ty - k, 1, 1); }
     }
   }
+  if (kind === 'port') decoratePort(x, cx, cy, r, rng);
   if (kind === 'rock') {
     deco(3, () => {
       const a = rng() * TAU, dd = r + 2 + rng() * 3, br = 1 + Math.floor(rng() * 2);
@@ -222,6 +198,37 @@ function makeIsland(seed, r, kind) {
     });
   }
   return { canvas: c, S, r, kind, foam, x: 0, y: 0 };
+}
+// port: domki, pomost, latarnia i bandera
+function decoratePort(x, cx, cy, r, rng) {
+  const pa = rng() * TAU, ex = Math.cos(pa), ey = Math.sin(pa);
+  // pomost
+  for (let s = r * 0.55; s < r + 20; s += 1) {
+    const px = Math.round(cx + ex * s), py = Math.round(cy + ey * s), nx = -ey, ny = ex;
+    for (let k = -1; k <= 1; k++) { x.fillStyle = k === 0 ? PAL.woodL : PAL.wood; x.fillRect(Math.round(px + nx * k), Math.round(py + ny * k), 1, 1); }
+    if (Math.floor(s) % 5 === 0) { x.fillStyle = PAL.woodDD; x.fillRect(Math.round(px + nx * 2), Math.round(py + ny * 2), 1, 1); x.fillRect(Math.round(px - nx * 2), Math.round(py - ny * 2), 1, 1); }
+  }
+  // domki
+  const n = 3 + Math.floor(r / 12);
+  for (let k = 0; k < n; k++) {
+    const a = pa + 0.9 + k / n * (TAU - 1.8) + (rng() - 0.5) * 0.3, d = r * (0.25 + rng() * 0.4);
+    const hx = Math.round(cx + Math.cos(a) * d) - 3, hy = Math.round(cy + Math.sin(a) * d) - 3;
+    const roof = [PAL.red, PAL.rust, PAL.woodD, PAL.slate][Math.floor(rng() * 4)];
+    x.fillStyle = 'rgba(24,20,37,0.4)'; x.fillRect(hx + 1, hy + 2, 7, 6);
+    x.fillStyle = PAL.sand; x.fillRect(hx, hy + 2, 6, 4);
+    x.fillStyle = PAL.woodD; x.fillRect(hx + 2, hy + 4, 2, 2);
+    x.fillStyle = roof; x.fillRect(hx - 1, hy, 8, 3);
+    x.fillStyle = PAL.black; x.fillRect(hx - 1, hy + 2, 8, 1);
+  }
+  // latarnia
+  const lx = Math.round(cx - ex * r * 0.55), ly = Math.round(cy - ey * r * 0.55);
+  x.drawImage(Disc.get(3, PAL.black), lx - 3, ly - 3); x.drawImage(Disc.get(2, PAL.white), lx - 2, ly - 2);
+  x.fillStyle = PAL.red2; x.fillRect(lx - 2, ly, 5, 1); x.fillStyle = PAL.yellow; x.fillRect(lx, ly - 1, 1, 1);
+  // maszt z banderą portu
+  const fx = Math.round(cx), fy = Math.round(cy);
+  x.fillStyle = PAL.woodDD; x.fillRect(fx, fy - 9, 1, 10);
+  x.fillStyle = PAL.white; x.fillRect(fx + 1, fy - 9, 5, 3);
+  x.fillStyle = PAL.red2; x.fillRect(fx + 1, fy - 8, 5, 1);
 }
 function drawPalm(x, px, py, rng) {
   px = Math.round(px); py = Math.round(py);
@@ -442,7 +449,7 @@ const UI = {
       ctx.fillStyle = PAL.white; ctx.fillRect(x + 2, y + 2, w - 6, 1);
       return;
     }
-    const tc = kind === 'team0' ? TEAM[0] : kind === 'team1' ? TEAM[1] : null;
+    const tc = typeof kind === 'object' ? kind : null;
     ctx.fillStyle = PAL.black; ctx.fillRect(x, y, w, h);
     ctx.fillStyle = tc ? tc.d : PAL.woodD; ctx.fillRect(x + 1, y + 1, w - 2, h - 2);
     ctx.fillStyle = tc ? tc.c : PAL.wood; ctx.fillRect(x + 1, y + 1, w - 2, 1); ctx.fillRect(x + 1, y + 1, 1, h - 2);
