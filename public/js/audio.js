@@ -246,6 +246,12 @@ const SOUNDS = {
     S.tone({ wave: 'square', f0: 220, dur: 0.05, vol: 0.06, at: 0.25, dest: d });
   },
   buoy(S) { [784, 1175, 1568].forEach((f, i) => S.tone({ wave: 'triangle', f0: f, dur: 0.2, vol: 0.12, at: i * 0.07 })); },
+  zap(S, o) {
+    const d = S.out(panX(o.x));
+    S.nz({ type: 'highpass', f0: 2500, dur: 0.14, vol: 0.5, dest: d });
+    S.tone({ wave: 'sawtooth', f0: 1800, f1: 300, dur: 0.16, vol: 0.12, dest: d });
+    S.tone({ wave: 'square', f0: 120, dur: 0.1, vol: 0.1, dest: d });
+  },
   ready(S) { [523, 659, 784, 1047].forEach((f, i) => S.tone({ wave: 'square', f0: f, dur: 0.12, vol: 0.07, at: i * 0.06 })); }
 };
 

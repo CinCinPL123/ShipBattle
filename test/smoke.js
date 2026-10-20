@@ -11,8 +11,8 @@ for (let i = 0; i < 4; i++) {
   const p = world.join(m => { box.msgs.push(m.t); box.bytes += JSON.stringify(m).length; }, { name: 'Test' + i, ship: 'Łajba ' + i, col: i });
   players.push({ p, box });
 }
-assert.strictEqual(world.ports.length, 8, 'powinno być 8 portów');
-assert.ok(world.islands.length > 40, 'za mało wysp: ' + world.islands.length);
+assert.strictEqual(world.ports.length, 11, 'powinno być 11 portów');
+assert.ok(world.islands.length > 90, 'za mało wysp: ' + world.islands.length);
 
 const dt = 1 / TICK_HZ;
 let events = new Set();
@@ -47,17 +47,22 @@ P.send = m => last.push(m);
 world.handle(P, { t: 'yard', op: 'open' });
 assert.strictEqual(last.pop().t, 'yard');
 const v0 = s.value;
-world.handle(P, { t: 'build', ops: [['place', 5, 4, 'hull', 0, 'shop'], ['place', 5, 3, 'mast', 2, 'shop'], ['place', 4, 7, 'longgun', 1, 'shop']] });
+// nowa warstwowa budowa: kadłub (7,12) przed dziobem, na nim maszt; długie działo zastępuje armatę na burcie (5,16)
+world.handle(P, { t: 'build', ops: [['place', 7, 12, 'hull', 0, 'shop'], ['place', 7, 12, 'mast', 2, 'shop'], ['place', 5, 16, 'longgun', 1, 'shop']] });
 let y = last.pop();
 assert.ok(!y.err, 'błąd stoczni: ' + y.err);
 assert.ok(s.value > v0, 'wartość okrętu nie wzrosła');
 assert.strictEqual(P.gold, 1000 - itemValue('hull', 0) - itemValue('mast', 2) - itemValue('longgun', 1));
-world.handle(P, { t: 'build', ops: [['rm', 5, 4]] });
+assert.ok(y.h.some(e => e[0] === 'cannon' && e[1] === 0), 'wymieniona armata powinna trafić do ładowni');
+world.handle(P, { t: 'build', ops: [['rm', 7, 12]] });
 y = last.pop();
 assert.ok(y.h.some(e => e[0] === 'mast' && e[1] === 2), 'maszt powinien trafić do ładowni');
-world.handle(P, { t: 'build', ops: [['place', 5, 4, 'mast', 2, 'hold']] });
+assert.ok(s.design[12 * COLS + 7] && s.design[12 * COLS + 7].p === 'hull', 'kadłub powinien zostać po zdjęciu elementu');
+world.handle(P, { t: 'build', ops: [['place', 7, 12, 'mast', 2, 'hold']] });
 y = last.pop();
 assert.ok(!y.err, 'nie da się postawić z ładowni: ' + y.err);
-world.handle(P, { t: 'build', ops: [['place', 5, 3, 'ghostw', 0, 'shop']] });
+world.handle(P, { t: 'build', ops: [['place', 7, 11, 'ghostw', 0, 'shop']] });
 assert.ok(last.pop().err, 'upiorne drewno nie powinno być w sklepie');
+world.handle(P, { t: 'build', ops: [['place', 8, 11, 'cannon', 0, 'shop']] });
+assert.ok(last.pop().err, 'działo nie powinno stać na pustej wodzie');
 console.log('OK');

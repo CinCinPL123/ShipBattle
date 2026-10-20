@@ -37,7 +37,7 @@ srv.stdout.on('data', async d => {
     assert.notStrictEqual((await get('/%2e%2e/package.json')).code, 200, 'wyjście poza public/');
     const a = await client('Ala'), b = await client('Bolek');
     const w = a.by.welcome[0];
-    assert.ok(w.isl.length > 40 && w.ports.length === 8 && w.you.ship > 0 && w.token);
+    assert.ok(w.isl.length > 90 && w.ports.length === 11 && w.you.ship > 0 && w.token);
     a.ws.send(JSON.stringify({ t: 'in', thr: 3, turn: 0.5 }));
     a.ws.send(JSON.stringify({ t: 'chat', x: 'Ahoj!' }));
     a.ws.send('to nie jest json');

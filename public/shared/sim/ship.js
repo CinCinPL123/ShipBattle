@@ -3,6 +3,10 @@
    Symulacja okrętu (serwer / tryb offline):
    fizyka, ostrzał, uszkodzenia, pożary. Bez rysowania -
    efekty idą do świata jako zdarzenia dla klientów.
+
+   Blok = jeden kafel: kadłub (b.h) + element na nim (b.p, np. działo).
+   Obie warstwy mają wspólną pulę wytrzymałości - zniszczony blok
+   ginie razem z kadłubem i tym, co na nim stało.
    ========================================================= */
 const DIR_LOCAL = { U: [0, -1], D: [0, 1], L: [-1, 0], R: [1, 0] };
 const NEIGH_BROKEN = [[0, -1, 2], [0, 1, 1], [-1, 0, 8], [1, 0, 4]];
@@ -25,7 +29,7 @@ class SimShip {
     this.st = { shots: 0, hits: 0, dmg: 0, kills: 0, rams: 0 };
     this.hitCd = 0; this.ver = 1; this.bd = new Set(); this.safe = false; this.port = -1;
     this.lastHit = null; this.lastHitT = -99; this.combatT = 0; this.swivT = 0; this.ghost = this.kind === 'ghost';
-    this.relic = {}; this.dmgK = 1; this.crane = 0; this.regT = 0; this.evTag = o.evTag || null; this.despawn = false;
+    this.relic = {}; this.dmgK = 1; this.crane = 0; this.magnet = 0; this.regT = 0; this.evTag = o.evTag || null; this.despawn = false;
     this.comX = SW / 2; this.comY = SH / 2; this.blocks = []; this.grid = new Int16Array(COLS * ROWS).fill(-1);
     this.build(null);
     this.structure(true);
@@ -37,10 +41,10 @@ class SimShip {
     this.blocks = [];
     this.design.forEach((x, i) => {
       if (!x) return;
-      const c = i % COLS, r = (i / COLS) | 0, o = old.get(i), max = partHp(x.p, x.q);
-      const b = { p: x.p, q: x.q, c, r, hp: max, max, alive: true, broken: 0, burnt: false, burn: 0, rl: 0, keg: false, fc: null, sw: 'L', sig: 0 };
-      if (o && o.p === x.p && o.q === x.q) { b.hp = o.hp; b.alive = o.alive; b.broken = o.broken; b.burnt = o.burnt; b.burn = o.burn; b.rl = o.rl; }
-      else if (WEAPONS[PARTS[x.p].w] && (WEAPONS[PARTS[x.p].w].mortar || WEAPONS[PARTS[x.p].w].mine)) b.rl = WEAPONS[PARTS[x.p].w].reload * 0.5;
+      const c = i % COLS, r = (i / COLS) | 0, o = old.get(i), max = cellHp(x), Wd = WEAPONS[PARTS[x.p].w];
+      const b = { p: x.p, q: x.q, h: baseOf(x), c, r, hp: max, max, alive: true, broken: 0, burnt: false, burn: 0, rl: 0, rate: 1, armK: 1, guard: 1, wet: false, fc: null, sw: 'L', sig: 0 };
+      if (o && o.p === x.p && o.q === x.q && o.h === b.h) { b.hp = o.hp; b.alive = o.alive; b.broken = o.broken; b.burnt = o.burnt; b.burn = o.burn; b.rl = o.rl; }
+      else if (Wd && (Wd.mortar || Wd.mine)) b.rl = Wd.reload * 0.5;
       b.sig = blockSig(b);
       this.blocks.push(b);
     });
@@ -61,7 +65,7 @@ class SimShip {
     this.grid.fill(-1);
     this.blocks.forEach((b, k) => { if (b.alive) this.grid[b.r * COLS + b.c] = k; });
     const list = [];
-    for (const b of this.blocks) if (b.alive) list.push({ p: b.p, q: b.q, c: b.c, r: b.r, f: b.hp / b.max, hp: b.hp });
+    for (const b of this.blocks) if (b.alive) list.push({ p: b.p, q: b.q, h: b.h, c: b.c, r: b.r, f: b.hp / b.max, hp: b.hp });
     if (!list.length) return;
     this.ph = shipPhys(list);
     const ncx = PAD + this.ph.comC * TILE + 4, ncy = PAD + this.ph.comR * TILE + 4;
@@ -70,33 +74,38 @@ class SimShip {
       this.x += dx * c - dy * s; this.y += dx * s + dy * c;
     }
     this.comX = ncx; this.comY = ncy;
-    let R = 0, hw = 0, nest = 0;
+    let R = 0, hw = 0, nest = 0, crane = 0, magnet = 0;
+    this.relic = {};
     for (const b of this.blocks) {
       if (!b.alive) continue;
       const lx = PAD + b.c * TILE + 4 - ncx, ly = PAD + b.r * TILE + 4 - ncy;
       R = Math.max(R, Math.hypot(lx, ly)); hw = Math.max(hw, Math.abs(lx));
       if (b.p === 'nest') nest++;
+      if (b.p === 'crane') crane++;
+      if (b.p === 'magnet') magnet = Math.max(magnet, magnetRange(b.q));
+      if (PARTS[b.p].relic) this.relic[b.p] = true;
     }
     this.radius = R + 7; this.halfW = hw + 4;
     this.rngK = 1 + Math.min(2, nest) * 0.12;
-    // relikwie i sprzęt działający na cały okręt
-    this.relic = {}; let crane = 0;
-    for (const b of this.blocks) if (b.alive) { if (PARTS[b.p].relic) this.relic[b.p] = true; if (b.p === 'crane') crane++; }
-    this.crane = Math.min(2, crane);
+    this.crane = Math.min(2, crane); this.magnet = magnet;
     this.dmgK = this.relic.dread ? 1.2 : 1;
     const open = (c, r) => this.cell(c, r) < 0;
     for (const b of this.blocks) {
       if (!b.alive) continue;
       const Wd = WEAPONS[PARTS[b.p].w];
       b.fc = Wd && Wd.side ? Design.facing(open, b.c, b.r) : null;
-      b.keg = false; b.armK = 1;
-      if (Wd) for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+      // sąsiedztwo: prochownia i zbrojownia obok, bębny, pompy i tarcze w pobliżu
+      let keg = false, drum = 0, arm = 1, guard = 1, wet = false;
+      for (let dr = -2; dr <= 2; dr++) for (let dc = -2; dc <= 2; dc++) {
         const k = this.cell(b.c + dc, b.r + dr);
-        if (k < 0 || (!dc && !dr)) continue;
-        const n = this.blocks[k];
-        if (n.p === 'keg') b.keg = true;
-        if (n.p === 'armory') b.armK = Math.max(b.armK, armoryK(n.q));
+        if (k < 0) continue;
+        const n = this.blocks[k], near = Math.abs(dc) <= 1 && Math.abs(dr) <= 1;
+        if (n.p === 'drum') drum = Math.max(drum, drumK(n.q));
+        if (n.p === 'pump') wet = true;
+        if (near && (dc || dr)) { if (n.p === 'keg') keg = true; if (n.p === 'armory') arm = Math.max(arm, armoryK(n.q)); }
+        if (near && n.p === 'shield') guard = Math.min(guard, 1 - shieldK(n.q));
       }
+      b.rate = (keg ? 1 / 0.6 : 1) * (1 + drum); b.armK = arm; b.guard = guard; b.wet = wet;
     }
   }
   touch(k) { const b = this.blocks[k], s = blockSig(b); if (s !== b.sig) { b.sig = s; this.bd.add(k); } }
@@ -114,6 +123,14 @@ class SimShip {
     return this.cell(Math.floor((q[0] - PAD) / TILE), Math.floor((q[1] - PAD) / TILE));
   }
   blockWorld(b) { return this.toWorld(PAD + b.c * TILE + 4, PAD + b.r * TILE + 4); }
+  // pozycje wszystkich żywych bloków (null dla zniszczonych), liczone raz na tik - do zderzeń
+  wpos() {
+    if (this._wT !== this.world.tickN || !this._w) {
+      this._wT = this.world.tickN;
+      this._w = this.blocks.map(b => b.alive ? this.blockWorld(b) : null);
+    }
+    return this._w;
+  }
   dirWorld(dx, dy) { const c = Math.cos(this.ang), s = Math.sin(this.ang); return [dx * c - dy * s, dx * s + dy * c]; }
   integrity() { let h = 0; for (const b of this.blocks) if (b.alive) h += Math.max(0, b.hp); return h / this.maxHp; }
   coreFrac() { return this.core.alive ? Math.max(0, this.core.hp) / this.core.max : 0; }
@@ -170,18 +187,18 @@ class SimShip {
     if (this.y > WORLD - m) this.vy -= (this.y - WORLD + m) * 3 * dt;
     this.x = clamp(this.x, 4, WORLD - 4); this.y = clamp(this.y, 4, WORLD - 4);
     this.speed = u;
-    // przeładowanie
+    // przeładowanie: tempo zależy od prochowni, bębnów i bonusu prochu
     const rate = this.buff.powder > 0 ? 2 : 1;
     for (const b of this.blocks) {
       if (!b.alive) continue;
-      if (b.rl > 0) b.rl = Math.max(0, b.rl - dt * rate * (b.keg ? 1 / 0.6 : 1));
+      if (b.rl > 0) b.rl = Math.max(0, b.rl - dt * rate * b.rate);
     }
     for (let i = this.queue.length - 1; i >= 0; i--) {
       const q = this.queue[i]; q.t -= dt;
       if (q.t <= 0) { this.queue.splice(i, 1); this.shoot(q.b, q.side); }
     }
     this.swivT -= dt;
-    if (this.swivT <= 0) { this.swivT = 0.2; this.autoSwivels(); }
+    if (this.swivT <= 0) { this.swivT = 0.2; this.autoGuns(); }
     this.updateFire(dt);
     // Perła Głębin: okręt sam się łata
     if (this.relic.pearl && this.alive) {
@@ -215,7 +232,7 @@ class SimShip {
     list.sort((a, b) => a.r - b.r);
     list.forEach((b, i) => {
       b.rl = this.reloadTime(b);
-      this.queue.push({ b, side, t: i * 0.075 + rand(0, 0.035) });
+      this.queue.push({ b, side, t: Math.min(0.9, i * 0.075) + rand(0, 0.035) });
     });
     this.combatT = Math.max(this.combatT, 6);
     return list.length;
@@ -241,15 +258,21 @@ class SimShip {
       this.world.spawnBall(this, k, i === 0, mp[0], mp[1], ddx * sv + this.vx * 0.8, ddy * sv + this.vy * 0.8, Wd.vz, Wd, Q, mul);
     }
     this.st.shots++;
-    const ca = Math.cos(a), sa = Math.sin(a), kick = Wd.ball === 2 || Wd.ball === 8 ? 2.2 : Wd.ball === 5 || Wd.ball === 7 ? 0.4 : 1.2;
+    const ca = Math.cos(a), sa = Math.sin(a), kick = Wd.auto ? 0.4 : Wd.ball === 2 || Wd.ball === 8 ? 2.2 : Wd.ball === 5 || Wd.ball === 7 ? 0.4 : 1.2;
     this.vx -= ca * kick; this.vy -= sa * kick;
   }
-  autoSwivels() {
+  // krętlice, wieże i cewki Tesli: celują same
+  autoGuns() {
     if (!this.alive || this.safe) return;
     for (const b of this.blocks) {
-      if (!b.alive || b.p !== 'swivel' || b.rl > 0) continue;
-      const Wd = WEAPONS.swivel, Q = QUAL[b.q];
-      const p = this.blockWorld(b), range = Wd.range * Q.rng * this.rngK;
+      if (!b.alive || b.rl > 0) continue;
+      const Wd = WEAPONS[PARTS[b.p].w];
+      if (!Wd || !Wd.auto) continue;
+      const Q = QUAL[b.q], p = this.blockWorld(b), range = Wd.range * Q.rng * this.rngK;
+      if (Wd.arc) {
+        if (this.world.zap(this, b, p, range, Wd, Q)) { b.rl = this.reloadTime(b); this.combatT = Math.max(this.combatT, 4); }
+        continue;
+      }
       const tg = this.world.autoTarget(this, p[0], p[1], range);
       if (!tg) continue;
       const d = Math.hypot(tg.x - p[0], tg.y - p[1]), tt = d / (Wd.spd * Q.rng);
@@ -261,7 +284,7 @@ class SimShip {
   }
   // ---------- uszkodzenia ----------
   ignite(b, src) {
-    if (b.burn > 0 || !b.alive || PARTS[b.p].mat !== 'wood' || this.relic.lantern) return;
+    if (b.burn > 0 || !b.alive || b.wet || PARTS[b.h].mat !== 'wood' || this.relic.lantern) return;
     b.burn = 5; b.burnSrc = src; b.burnt = true;
     this.touch(this.blocks.indexOf(b));
     const w = this.blockWorld(b);
@@ -271,6 +294,7 @@ class SimShip {
     const b = this.blocks[k];
     if (!b || !b.alive || !this.alive || this.safe) return 0;
     o = o || {};
+    dmg *= b.guard;
     const before = b.hp;
     b.hp -= dmg;
     if (src && src !== this) {
@@ -279,7 +303,7 @@ class SimShip {
     }
     this.combatT = Math.max(this.combatT, 10);
     if (b.hp <= 0) { const left = -b.hp; this.destroyBlock(k, src); return left; }
-    const P = PARTS[b.p];
+    const P = PARTS[b.h];
     let fc = o.fireChance === undefined ? 0.12 : o.fireChance;
     if (P.fireRes) fc *= 1 - P.fireRes;
     if (P.mat === 'wood' && chance(fc)) this.ignite(b, src);
@@ -292,7 +316,7 @@ class SimShip {
     if (!b.alive) return;
     b.alive = false; b.hp = 0; b.burn = 0;
     const w = this.blockWorld(b);
-    this.world.ev('kb', w[0], w[1], this.id, k, PARTS[b.p].mat === 'metal' ? 1 : 0);
+    this.world.ev('kb', w[0], w[1], this.id, k, PARTS[b.h].mat === 'metal' ? 1 : 0);
     if (src && src !== this) src.st.kills++;
     for (const n of NEIGH_BROKEN) {
       const j = this.cell(b.c + n[0], b.r + n[1]);
@@ -370,6 +394,7 @@ class SimShip {
         }
       }
       if (b.burn > 0) {
+        if (b.wet) { b.burn = 0; this.touch(k); continue; } // pompa pożarnicza gasi od razu
         b.burn -= dt; b.hp -= 4 * dt;
         if (chance(dt * 0.18)) {
           const d = pick(DIRS4), j = this.cell(b.c + d[0], b.r + d[1]);

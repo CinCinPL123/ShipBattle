@@ -31,7 +31,7 @@ const BOSS_NAMES = ['Krwawa Broda', 'Czarny Wąs', 'Jednooki Bartek', 'Morska Wi
 const LOOT_GOOD = ['mast', 'cannon', 'longgun', 'mortar', 'carp', 'swivel', 'firegun', 'bombard', 'rocket', 'harpoon', 'steam', 'armory'];
 const DIR_NAMES = ['na północy', 'na północnym wschodzie', 'na wschodzie', 'na południowym wschodzie', 'na południu', 'na południowym zachodzie', 'na zachodzie', 'na północnym zachodzie'];
 function dirName(x, y) {
-  if (Math.hypot(x - WCX, y - WCY) < 500) return 'w samym środku morza';
+  if (Math.hypot(x - WCX, y - WCY) < 800) return 'w samym środku morza';
   const a = Math.atan2(x - WCX, -(y - WCY));
   return DIR_NAMES[((Math.round(a / (TAU / 8)) % 8) + 8) % 8];
 }
@@ -56,7 +56,7 @@ class SimWorld {
     const wa = rand(0, TAU);
     this.wind = { ang: wa, target: wa, str: 1, changeT: rand(20, 40) };
     this.genWorld();
-    for (let i = 0; i < 90; i++) this.spawnBarrel();
+    for (let i = 0; i < 220; i++) this.spawnBarrel();
   }
   nid() { return this._id++; }
   later(t, fn) { this.timers.push({ t, fn }); }
@@ -74,8 +74,8 @@ class SimWorld {
       for (const p of this.ports) if (Math.hypot(x - p.x, y - p.y) < r + p.safe + 30) return false;
       return true;
     };
-    // porty: 3 w spokojnych wodach, 3 na szerokim morzu, 2 w głębinach
-    const plan = [[0, 3, 420, 820], [1, 3, 1200, 1550], [2, 2, 1950, 2150]];
+    // porty: 3 w spokojnych wodach, 4 na szerokim morzu, 4 w głębinach
+    const plan = [[0, 3, 700, 1300], [1, 4, 1900, 2500], [2, 4, 3100, 3300]];
     const names = shuffle(PORT_NAMES.slice());
     for (const [zone, n, d0, d1] of plan) {
       // porty w głębinach tylko po przekątnych - przy osiach nie zmieściłyby się w świecie
@@ -94,7 +94,7 @@ class SimWorld {
     }
     // zwykłe wyspy
     let tries = 0;
-    while (this.islands.length < 64 && tries++ < 3000) {
+    while (this.islands.length < 135 && tries++ < 9000) {
       const x = 150 + rng() * (WORLD - 300), y = 150 + rng() * (WORLD - 300), zone = zoneOf(x, y);
       const roll = rng();
       let kind = roll < 0.45 ? 'palm' : roll < 0.75 ? 'rock' : 'sand';
@@ -142,7 +142,7 @@ class SimWorld {
       let x, y;
       if (zone === undefined || zone < 0) { x = rand(150, WORLD - 150); y = rand(150, WORLD - 150); }
       else {
-        const d0 = zone === 0 ? 120 : ZONES[zone - 1].r + 40, d1 = zone === 2 ? 2700 : ZONES[zone].r - 40, a = rand(0, TAU), d = rand(d0, d1);
+        const d0 = zone === 0 ? 120 : ZONES[zone - 1].r + 40, d1 = zone === 2 ? 4300 : ZONES[zone].r - 40, a = rand(0, TAU), d = rand(d0, d1);
         x = WCX + Math.sin(a) * d; y = WCY - Math.cos(a) * d;
       }
       if (!this.isWater(x, y, 40)) continue;
@@ -294,7 +294,7 @@ class SimWorld {
     return true;
   }
   deadCells(s) { const o = []; for (const b of s.blocks) if (!b.alive) o.push(b.r * COLS + b.c); return o; }
-  repairCost(s) { let c = 0; for (const b of s.blocks) if (!b.alive) c += Math.ceil(itemValue(b.p, b.q) * 0.25); return c; }
+  repairCost(s) { let c = 0; for (const b of s.blocks) if (!b.alive) c += Math.ceil(cellValue(b) * 0.25); return c; }
   yardMsg(p, quiet) {
     const s = p.ship;
     return {
@@ -310,7 +310,7 @@ class SimWorld {
       if (!Array.isArray(op)) continue;
       const c = op[1] | 0, r = op[2] | 0;
       if (!Design.inb(c, r)) continue;
-      const i = r * COLS + c;
+      const i = r * COLS + c, dead = alive.get(i) === false;
       if (op[0] === 'place') {
         const pp = op[3];
         if (typeof pp !== 'string' || !Object.prototype.hasOwnProperty.call(PARTS, pp) || pp === 'core') continue;
@@ -320,16 +320,18 @@ class SimWorld {
           if (PARTS[pp].noShop || q > SHOP_MAXQ) { err = 'Tego nie kupisz w porcie'; continue; }
           price = itemValue(pp, q);
         } else if (!p.hold.has(itemKey(pp, q))) { err = 'Nie masz tego w ładowni'; continue; }
-        const res = Design.canPlace(a, c, r, { p: pp, q }, p.gold, price);
+        const res = Design.canPlace(a, c, r, { p: pp, q }, p.gold, price, false, dead);
         if (!res.ok) { if (res.reason) err = res.reason; continue; }
         if (src === 'hold') this.holdTake(p, pp, q);
-        if (res.replace && alive.get(i) !== false) this.holdAdd(p, res.replace);
-        a[i] = { p: pp, q }; alive.set(i, true);
+        if (!dead) for (const d of res.displaced) this.holdAdd(p, d);
+        a[i] = res.cell; alive.set(i, true);
         p.gold -= price; changed = true;
       } else if (op[0] === 'rm') {
-        const res = Design.removeAt(a, c, r);
+        // zdejmuje wierzchni przedmiot: element (kadłub zostaje) albo goły lub zniszczony kafel
+        const res = Design.removeTop(a, c, r, dead);
         if (!res) continue;
-        for (const x of res.removed) { if (alive.get(x.i) !== false) this.holdAdd(p, x); alive.delete(x.i); }
+        for (const x of res.removed) if (alive.get(x.i) !== false) this.holdAdd(p, x);
+        for (const x of res.removed) if (!a[x.i]) alive.delete(x.i);
         changed = true;
       }
     }
@@ -372,7 +374,7 @@ class SimWorld {
     if (type === 'npc') { need = z === 0 ? 1 : 2; reward = (60 + need * 50) * m; }
     else if (type === 'bar') { need = randi(5, 9); reward = (20 + need * 7) * m; }
     else if (type === 'gold') { need = randi(12, 25) * 10; reward = need * 0.3 * m; }
-    else { const dst = pick(others); to = dst.idx; reward = (40 + Math.hypot(dst.x - port.x, dst.y - port.y) / 9) * (1 + dst.zone * 0.3); }
+    else { const dst = pick(others); to = dst.idx; reward = (40 + Math.hypot(dst.x - port.x, dst.y - port.y) / 12) * (1 + dst.zone * 0.3); }
     p.ct = { type, need, have: 0, reward: Math.max(10, Math.round(reward / 5) * 5), to };
     p.send && p.send({ t: 'note', x: 'Nowe zlecenie od kapitanatu portu!', c: PAL.gold, f: 1 });
   }
@@ -391,22 +393,25 @@ class SimWorld {
     let design, ctrl, name, col;
     const zone = zoneOf(x, y);
     if (kind === 'ghost') {
-      design = Design.fromRows(TEMPLATES.widmo.rows, 2);
+      design = Design.fromRows(TEMPLATES.widmo.rows, 2, TEMPLATES.widmo.base);
       ctrl = new BotCtrl(2, 'broad', 'ghost'); name = 'Statek Widmo'; col = COL_GHOST;
     } else if (kind === 'merchant') {
-      design = Design.fromRows(TEMPLATES.kupiec.rows, 1);
+      design = Design.fromRows(TEMPLATES.kupiec.rows, 1, TEMPLATES.kupiec.base);
       ctrl = new BotCtrl(1, 'raider', 'merchant'); name = 'Złoty Galeon'; col = COL_MERCHANT;
     } else if (kind === 'boss') {
-      design = Design.fromRows(TEMPLATES.flagowiec.rows, o.q || 2);
+      design = Design.fromRows(TEMPLATES.flagowiec.rows, o.q || 2, TEMPLATES.flagowiec.base);
       ctrl = new BotCtrl(2, 'broad', 'pirate'); name = o.name || 'Okręt Flagowy'; col = COL_PIRATE;
     } else {
-      const B = [[140, 260], [320, 600], [650, 1200]][zone], q = zone === 0 ? 0 : zone === 1 ? (chance(0.5) ? 1 : 0) : (chance(0.5) ? 2 : 1);
+      const B = [[160, 320], [420, 900], [1000, 2200]][zone], q = zone === 0 ? 0 : zone === 1 ? (chance(0.5) ? 1 : 0) : (chance(0.5) ? 2 : 1);
       const mat = zone === 0 ? null : zone === 1 ? 'oak' : pick(['mahog', 'iron', 'oak']);
       const built = AIBuild.make(rand(B[0], B[1]), zone, { q, mat });
       design = built.cells; ctrl = new BotCtrl(zone, built.arche, 'pirate'); name = SHIP_NAMES.random(); col = COL_PIRATE;
     }
     const ship = new SimShip(this, this.nid(), design, { kind, name, col, x, y, ang: rand(0, TAU), evTag: o.evTag });
     ship.ctrl = ctrl; ship.zone = zone;
+    // wartość okrętów zdarzeń jest stała (siła na liście i nagroda), niezależnie od drogich materiałów
+    const fixed = { ghost: 1400, merchant: 800, boss: 2600 }[kind];
+    if (fixed) { ship.value = fixed; ship.power = shipPower(fixed); }
     this.ships.push(ship);
     return ship;
   }
@@ -470,7 +475,7 @@ class SimWorld {
     const id = this.nid();
     this.balls.push({
       id, x, y, z: BALL_Z0, vx, vy, vz, owner, dmg: Wd.dmg * Q.dmg * (mul || 1), kind: Wd.ball, fire: Wd.fire || 0, rig: Wd.rig || 1, hit: false,
-      pen: !Wd.pel && !Wd.blast && !Wd.tether, blast: Wd.blast || 0, teth: Wd.tether || 0
+      pen: !Wd.pel && !Wd.blast && !Wd.tether && !Wd.pierce, blast: Wd.blast || 0, teth: Wd.tether || 0, pierce: Wd.pierce || 0
     });
     this.ev('b', x, y, id, r1(vx), r1(vy), r2(vz), Wd.ball, owner.id, k, muzzle ? 1 : 0);
   }
@@ -514,6 +519,35 @@ class SimWorld {
     bar.dmg = WEAPONS.mine.dmg * QUAL[b.q].dmg * (b.armK || 1) * ship.dmgK;
     this.ev('ml', p[0], p[1]);
     ship.st.shots++;
+  }
+  // cewka Tesli: piorun w najbliższy wrogi okręt (albo krakena) w zasięgu, przeskakuje na sąsiednie części
+  zap(ship, b, p, range, Wd, Q) {
+    let foe = null, bd = range;
+    for (const s of this.ships) {
+      if (!this.hostile(ship, s)) continue;
+      const d = Math.hypot(s.x - p[0], s.y - p[1]) - s.radius * 0.5;
+      if (d < bd) { bd = d; foe = s; }
+    }
+    const dmg = Wd.dmg * Q.dmg * (b.armK || 1) * ship.dmgK, sid = ship.id, bi = ship.blocks.indexOf(b);
+    if (foe) {
+      let best = -1, bk = range;
+      foe.blocks.forEach((blk, k) => { if (!blk.alive) return; const w = foe.blockWorld(blk), d = Math.hypot(w[0] - p[0], w[1] - p[1]); if (d < bk) { bk = d; best = k; } });
+      if (best < 0) return false;
+      const tw = foe.blockWorld(foe.blocks[best]), near = [];
+      foe.blocks.forEach((blk, k) => { if (k !== best && blk.alive && near.length < 2) { const w = foe.blockWorld(blk); if (Math.hypot(w[0] - tw[0], w[1] - tw[1]) < 14) near.push([k, w]); } });
+      this.ev('tz', p[0], p[1], r1(tw[0]), r1(tw[1]), sid, bi);
+      ship.st.shots++; ship.st.hits++;
+      foe.damageBlock(best, dmg, ship, { fireChance: 0.25 });
+      for (const [k, w] of near) { this.ev('tz', tw[0], tw[1], r1(w[0]), r1(w[1]), 0, 0); foe.damageBlock(k, dmg * 0.6, ship, { fireChance: 0.15 }); }
+      return true;
+    }
+    if (ship.kind === 'player') for (const m of this.mons) {
+      if (!m.alive || m.rise < 0.5 || Math.hypot(m.x - p[0], m.y - p[1]) > range + 16) continue;
+      this.ev('tz', p[0], p[1], r1(m.x), r1(m.y), sid, bi);
+      this.monDamage(m, dmg, ship);
+      return true;
+    }
+    return false;
   }
   // harpun: lina między okrętami
   tether(a, s, dur) {
@@ -584,11 +618,18 @@ class SimWorld {
           // Latarnia Widma: część kul przelatuje przez okręt
           if (s.relic.lantern && b.lr !== s.id) { b.lr = s.id; if (chance(0.15)) { b.skip = s.id; this.ev('gp', b.x, b.y); } }
           if (b.skip === s.id) continue;
-          const blk = s.blocks[k], metal = PARTS[blk.p].mat !== 'wood';
+          // bełt balisty trafia każdą część tylko raz
+          if (b.pierce) { const key = s.id * 1000 + k; if (b.seen && b.seen.has(key)) continue; (b.seen || (b.seen = new Set())).add(key); }
+          const blk = s.blocks[k], metal = PARTS[blk.h].mat !== 'wood';
           if (!b.hit) { b.owner.st.hits++; b.hit = true; }
           const dmg = b.dmg * (RIGGING.has(blk.p) ? b.rig : 1);
           if (b.teth) this.tether(b.owner, s, b.teth);
           const left = s.damageBlock(k, dmg, b.owner, b.fire ? { fireChance: b.fire } : undefined);
+          if (b.pierce) {
+            b.pierce--; b.dmg *= 0.82;
+            if (b.pierce > 0 && b.dmg >= 4) { this.ev('bh', b.x, b.y, metal ? 1 : 0); break; }
+            end(metal ? 2 : 1); break;
+          }
           if (left > 5 && b.pen) { b.dmg = left; b.vx *= 0.7; b.vy *= 0.7; this.ev('bh', b.x, b.y, metal ? 1 : 0); }
           else end(metal ? 2 : 1);
           break;
@@ -629,21 +670,37 @@ class SimWorld {
   collidePair(A, B) {
     const dx = B.x - A.x, dy = B.y - A.y;
     if (dx * dx + dy * dy > (A.radius + B.radius) * (A.radius + B.radius)) return;
-    const pa = A.blocks.map(b => b.alive ? A.blockWorld(b) : null), pb = B.blocks.map(b => b.alive ? B.blockWorld(b) : null);
+    // pozycje bloków liczymy raz na tik; kafle drugiego okrętu trafiają do siatki, więc każdy kafel pierwszego
+    // sprawdza tylko sąsiednie komórki zamiast wszystkich kafli (okręty mają po kilkaset kafli)
+    const pa = A.wpos(), pb = B.wpos(), R = 7.6, G = 8, grid = new Map();
+    const rb = B.radius + R, ra = A.radius + R;
+    for (let j = 0; j < pb.length; j++) {
+      const b = pb[j]; if (!b) continue;
+      const ex = b[0] - A.x, ey = b[1] - A.y;
+      if (ex * ex + ey * ey > ra * ra) continue;
+      const key = ((b[0] / G) | 0) * 1024 + ((b[1] / G) | 0), l = grid.get(key);
+      if (l) l.push(j); else grid.set(key, [j]);
+    }
+    if (!grid.size) return;
     let nx = 0, ny = 0, cnt = 0, maxPen = 0, best = null;
-    const R = 7.6;
     for (let i = 0; i < pa.length; i++) {
       const a = pa[i]; if (!a) continue;
-      for (let j = 0; j < pb.length; j++) {
-        const b = pb[j]; if (!b) continue;
-        const ddx = a[0] - b[0], ddy = a[1] - b[1], d2 = ddx * ddx + ddy * ddy;
-        if (d2 >= R * R) continue;
-        const d = Math.sqrt(d2) || 0.01, pen = R - d;
-        nx += ddx / d * pen; ny += ddy / d * pen; cnt++;
-        if (pen > maxPen) { maxPen = pen; best = [i, j, a, b]; }
+      const ex = a[0] - B.x, ey = a[1] - B.y;
+      if (ex * ex + ey * ey > rb * rb) continue;
+      const gx = (a[0] / G) | 0, gy = (a[1] / G) | 0;
+      for (let cx = gx - 1; cx <= gx + 1; cx++) for (let cy = gy - 1; cy <= gy + 1; cy++) {
+        const l = grid.get(cx * 1024 + cy); if (!l) continue;
+        for (const j of l) {
+          const b = pb[j], ddx = a[0] - b[0], ddy = a[1] - b[1], d2 = ddx * ddx + ddy * ddy;
+          if (d2 >= R * R) continue;
+          const d = Math.sqrt(d2) || 0.01, pen = R - d;
+          nx += ddx / d * pen; ny += ddy / d * pen; cnt++;
+          if (pen > maxPen) { maxPen = pen; best = [i, j, a, b]; }
+        }
       }
     }
     if (!cnt) return;
+    A._wT = B._wT = -1; // po korekcie pozycji cache jest nieaktualny
     const nl = Math.hypot(nx, ny) || 1; nx /= nl; ny /= nl;
     const mA = A.ph.mass, mB = B.ph.mass, tot = mA + mB;
     A.x += nx * maxPen * mB / tot; A.y += ny * maxPen * mB / tot;
@@ -660,10 +717,11 @@ class SimWorld {
     if (imp > 12 && A.hitCd <= 0 && B.hitCd <= 0) {
       A.hitCd = B.hitCd = 0.35;
       const ba = A.blocks[best[0]], bb = B.blocks[best[1]], base = imp * 0.75;
-      const ramK = b => b.p === 'ram' ? 3 * QUAL[b.q].dmg : 1, takeK = b => b.p === 'ram' ? 0.25 : PARTS[b.p].mat === 'metal' ? 0.6 : 1;
+      const ramK = b => b.p === 'ram' ? 3 * QUAL[b.q].dmg : 1, takeK = b => b.p === 'ram' ? 0.25 : PARTS[b.h].mat === 'metal' ? 0.6 : 1;
+      const thornK = b => b.h === 'thorn' ? 1.5 : 1; // pancerz kolczasty rani tego, kto w niego uderza
       // Ząb Krakena: zderzenia ranią mocniej, a właściciel dostaje mniej
       const krA = A.relic.kraken, krB = B.relic.kraken;
-      const dA = base * ramK(bb) * takeK(ba) * (krB ? 1.6 : 1) * (krA ? 0.7 : 1), dB = base * ramK(ba) * takeK(bb) * (krA ? 1.6 : 1) * (krB ? 0.7 : 1);
+      const dA = base * ramK(bb) * takeK(ba) * thornK(bb) * (krB ? 1.6 : 1) * (krA ? 0.7 : 1), dB = base * ramK(ba) * takeK(bb) * thornK(ba) * (krA ? 1.6 : 1) * (krB ? 0.7 : 1);
       if (ba.p === 'ram') A.st.rams++;
       if (bb.p === 'ram') B.st.rams++;
       A.damageBlock(best[0], dA, B, { fireChance: 0 });
@@ -832,9 +890,10 @@ class SimWorld {
     for (let k = 0; k < W.length; k++) { r -= W[k]; if (r < 0) { q = k; break; } q = k; }
     if (chest && q < 4 && chance(0.3)) q++;
     const pool = ['mast', 'mast', 'mast', 'cannon', 'cannon', 'cannon', 'longgun', 'carro', 'firegun', 'chain', 'swivel', 'swivel', 'mortar', 'oars', 'rudder', 'keg', 'carp', 'nest', 'ram',
-      'bombard', 'rocket', 'flame', 'harpoon', 'mines', 'jib', 'jib', 'steam', 'armory'];
-    if (chance(0.15)) return { p: pick(['oak', 'mahog', 'iron', 'steel', 'crane']), q: 0 };
-    return { p: pick(pool), q: Math.min(q, 4) };
+      'bombard', 'rocket', 'flame', 'harpoon', 'mines', 'jib', 'jib', 'steam', 'armory', 'ballista', 'turret', 'tesla', 'lateen', 'paddle', 'drum', 'shield', 'pump', 'magnet'];
+    if (chance(0.15)) return { p: pick(['oak', 'mahog', 'iron', 'steel', 'thorn', 'bamboo', 'crane']), q: 0 };
+    const p = pick(pool);
+    return { p, q: hasQ(p) ? Math.min(q, 4) : 0 };
   }
   dropGold(x, y, total, piles) {
     total = Math.round(total);
@@ -876,12 +935,13 @@ class SimWorld {
       if (b.x < 80 || b.y < 80 || b.x > WORLD - 80 || b.y > WORLD - 80) { this.barrels.splice(i, 1); continue; }
       // taranowanie beczek
       for (const s of this.ships) {
-        if (!s.alive || Math.hypot(s.x - b.x, s.y - b.y) > s.radius + 6) continue;
+        const bdx = s.x - b.x, bdy = s.y - b.y, rr = s.radius + 6;
+        if (!s.alive || bdx * bdx + bdy * bdy > rr * rr) continue;
         if (this.touchesBlock(s, b.x, b.y, 8)) { this.breakBarrel(b, s); break; }
       }
     }
     this.barT -= dt;
-    if (this.barT <= 0) { this.barT = 1.5; if (this.barrels.length < 110) this.spawnBarrel(); }
+    if (this.barT <= 0) { this.barT = 0.8; if (this.barrels.length < 230) this.spawnBarrel(); }
   }
   updateLoot(dt) {
     for (let i = this.loot.length - 1; i >= 0; i--) {
@@ -894,6 +954,11 @@ class SimWorld {
       if (l.t > l.life) { this.loot.splice(i, 1); continue; }
       for (const s of this.ships) {
         if (s.kind !== 'player' || !s.alive || !s.owner) continue;
+        // magnes łupów: przyciąga dryfujące rzeczy w stronę okrętu
+        if (s.magnet && !l.pin) {
+          const d = Math.hypot(s.x - l.x, s.y - l.y);
+          if (d < s.magnet + s.radius * 0.6 && d > 1) { l.x += (s.x - l.x) / d * 55 * dt; l.y += (s.y - l.y) / d * 55 * dt; }
+        }
         const reach = s.crane * 6;
         if (Math.hypot(s.x - l.x, s.y - l.y) > s.radius + 8 + reach) continue;
         if (!this.touchesBlock(s, l.x, l.y, 11 + reach)) continue;
@@ -917,6 +982,16 @@ class SimWorld {
       else if (l.item.q >= 3) this.feed({ k: 'loot', x: p.name + ' zdobywa: ' + itemName(l.item.p, l.item.q), c: QUAL[l.item.q].col });
     }
   }
+  // co da się wyłowić z wraku: elementy (bez relikwii) i droższe materiały kadłuba
+  salvage(ship) {
+    const out = [];
+    for (const b of ship.blocks) {
+      if (b.p === 'core') continue;
+      if (b.p !== b.h && !isRelic(b.p)) out.push({ p: b.p, q: b.q });
+      if (b.h !== 'hull' && b.h !== 'core' && !PARTS[b.h].noShop) out.push({ p: b.h, q: 0 });
+    }
+    return out;
+  }
   // ---------- zatonięcie ----------
   onSink(ship, src) {
     const x = ship.x, y = ship.y, val = ship.value, killer = src && src !== ship ? src : null;
@@ -926,7 +1001,7 @@ class SimWorld {
       const p = ship.owner, hold = [...p.hold.values()];
       this.dropGold(x, y, p.gold * 0.5, 3);
       const items = shuffle(hold.filter(e => !isRelic(e.p)).flatMap(e => Array(e.n).fill(e))).slice(0, 3);
-      const parts = shuffle(ship.blocks.filter(b => b.p !== 'core' && b.p !== 'hull' && !isRelic(b.p))).slice(0, 2);
+      const parts = shuffle(this.salvage(ship)).slice(0, 2);
       // relikwie zawsze idą do wody - kto pierwszy, ten lepszy
       const relics = ship.blocks.filter(b => isRelic(b.p)).concat(hold.filter(e => isRelic(e.p)).flatMap(e => Array(e.n).fill(e)));
       for (const it of items.concat(parts)) drop(it, 20);
@@ -946,7 +1021,7 @@ class SimWorld {
       this.dropLoot(x + rand(-15, 15), y + rand(-15, 15), { kind: 1, item: this.rollItem(2, true) });
     } else {
       this.dropGold(x, y, 12 + val * 0.12, 2);
-      for (const b of shuffle(ship.blocks.filter(b => b.p !== 'core' && b.p !== 'hull')).slice(0, 2)) if (chance(0.45)) drop(b, 16);
+      for (const it of shuffle(this.salvage(ship)).slice(0, 2)) if (chance(0.45)) drop(it, 16);
       if (!ship.evTag) this.npcCd.push(this.T + rand(90, 160));
     }
     // nagroda dla zwycięzcy
@@ -1066,7 +1141,7 @@ class SimWorld {
       this.banner('MGŁA!', 'Gęsta mgła spowiła morze ' + dirName(pt.x, pt.y) + '. Kto w niej płynie, znika z map - wrogowie też.', PAL.silver);
     } else if (type === 'regatta') {
       for (let t = 0; t < 30; t++) {
-        const a = rand(0, TAU), d = rand(420, 780), cx = WCX + Math.sin(a) * d, cy = WCY - Math.cos(a) * d, a0 = rand(0, TAU), R = 260;
+        const a = rand(0, TAU), d = rand(700, 1500), cx = WCX + Math.sin(a) * d, cy = WCY - Math.cos(a) * d, a0 = rand(0, TAU), R = 260;
         const buoys = [];
         for (let k = 0; k < 4; k++) {
           const b = a0 + k * TAU / 4, x = cx + Math.cos(b) * R, y = cy + Math.sin(b) * R;
@@ -1322,7 +1397,7 @@ class SimWorld {
     return me;
   }
   snapshot() {
-    for (const s of this.ships) { s.bdOut = s.bd.size ? [...s.bd].map(k => blockNet(k, s.blocks[k])) : null; s.bd.clear(); }
+    for (const s of this.ships) { s.bdOut = s.bd.size ? [...s.bd].map(k => blockNet(k, s.blocks[k])) : null; s.bd.clear(); s.netRow = this.shipNet(s); }
     const A2 = AOI * AOI;
     for (const p of this.players.values()) {
       if (!p.send) continue;
@@ -1332,7 +1407,7 @@ class SimWorld {
         if (dx * dx + dy * dy > A2 && s !== p.ship) continue;
         if (p.known.get(s.id) !== s.ver) { p.send(this.shipLayout(s)); p.known.set(s.id, s.ver); }
         else if (s.bdOut) bd.push([s.id].concat(s.bdOut));
-        seen.add(s.id); sh.push(this.shipNet(s));
+        seen.add(s.id); sh.push(s.netRow);
       }
       let gone = null;
       for (const id of p.known.keys()) if (!seen.has(id)) { (gone || (gone = [])).push(id); p.known.delete(id); }

@@ -17,9 +17,9 @@ class ShipView {
     this.blocks = [];
     design.forEach((x, i) => {
       if (!x) return;
-      const max = partHp(x.p, x.q), c = i % COLS, r = (i / COLS) | 0;
+      const max = cellHp(x), c = i % COLS, r = (i / COLS) | 0;
       const prev = old && old.find(b => b.c === c && b.r === r && b.p === x.p);
-      this.blocks.push({ p: x.p, q: x.q, c, r, hp: max, max, alive: true, broken: 0, burnt: false, burn: 0, flash: 0, recoil: 0, sw: prev ? prev.sw : 'L', fc: null, os: null, aim: prev ? prev.aim : undefined });
+      this.blocks.push({ p: x.p, q: x.q, h: baseOf(x), c, r, hp: max, max, alive: true, broken: 0, burnt: false, burn: 0, flash: 0, recoil: 0, sw: prev ? prev.sw : 'L', fc: null, os: null, aim: prev ? prev.aim : undefined });
     });
     for (const e of m.b) this.applyBlock(e);
     this.core = this.blocks.find(b => b.p === 'core');
@@ -37,7 +37,7 @@ class ShipView {
   }
   structure() {
     const list = [];
-    for (const b of this.blocks) if (b.alive) list.push({ p: b.p, q: b.q, c: b.c, r: b.r });
+    for (const b of this.blocks) if (b.alive) list.push({ p: b.p, q: b.q, h: b.h, c: b.c, r: b.r });
     if (!list.length) { this.redraw(); return; }
     const ph = shipPhys(list);
     this.comX = PAD + ph.comC * TILE + 4; this.comY = PAD + ph.comR * TILE + 4;

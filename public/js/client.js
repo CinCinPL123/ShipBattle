@@ -33,7 +33,7 @@ class Mover {
     this.x = lerp(this.x0, this.x1, k); this.y = lerp(this.y0, this.y1, k);
   }
 }
-const BALL_SND = ['cannon', 'cannon', 'cannon', 'fireball', 'cannon', 'swivel', 'rocket', 'flame', 'bombard', 'harpoon'];
+const BALL_SND = ['cannon', 'cannon', 'cannon', 'fireball', 'cannon', 'swivel', 'rocket', 'flame', 'bombard', 'harpoon', 'harpoon'];
 
 class ClientWorld {
   constructor(w) {
@@ -41,7 +41,7 @@ class ClientWorld {
     this.islands = w.isl.map(a => { const isl = makeIsland(a[4], a[2], a[3]); isl.x = a[0]; isl.y = a[1]; isl.cr = a[2] * 0.92; isl.port = a[5]; return isl; });
     this.ports = w.ports.map(a => ({ name: a[0], x: a[1], y: a[2], r: a[3], safe: a[4], zone: a[5] }));
     this.ships = new Map(); this.barrels = new Map(); this.loot = new Map(); this.balls = new Map(); this.mons = new Map(); this.tethers = new Map();
-    this.shells = []; this.wrecks = []; this.bolts = []; this.flashes = []; this.warns = [];
+    this.shells = []; this.wrecks = []; this.bolts = []; this.flashes = []; this.warns = []; this.arcs = [];
     this.fx = new Particles(); this.evq = []; this.off = null; this.T = w.T || 0;
     this.me = { shipId: w.you.ship, gold: w.you.gold, name: w.you.name, shipName: w.you.shipName, col: w.you.col, pw: 0, port: -1, rl: [[], [], []], n: 0, cap: MAX_HOLD, yard: 0, cmb: 0, thr: 0, ct: null, rg: null };
     this.map = { pl: [], top: 0, ev: [], n: 1 }; this.plByShip = new Map();
@@ -140,7 +140,7 @@ class ClientWorld {
         if (b) {
           b.recoil = 1;
           const l = v.toLocalDir(vx - v.vx * 0.8, vy - v.vy * 0.8);
-          if (b.p === 'swivel') b.aim = Math.atan2(l[1], l[0]);
+          if (AUTO_AIM.has(b.p)) b.aim = Math.atan2(l[1], l[0]);
           else if (b.fc === 'LR') b.sw = l[0] > 0 ? 'R' : 'L';
         }
         if (e[11]) {
@@ -263,6 +263,14 @@ class ClientWorld {
         break;
       }
       case 'tx': { const th = this.tethers.get(e[4]); if (th && th.b === e[5]) this.tethers.delete(e[4]); break; }
+      case 'tz': {
+        this.arcs.push({ x0: x, y0: y, x1: e[4], y1: e[5], t: 0, seed: randi(1, 1e6) });
+        const v = this.ships.get(e[6]), b = v && v.blocks[e[7]];
+        if (b) { const l = v.toLocalDir(e[4] - x, e[5] - y); b.aim = Math.atan2(l[1], l[0]); b.recoil = 0.6; }
+        if (this.near(e[4], e[5], 40)) { FX.sparkle(P, e[4], e[5], PAL.cyan); FX.sparkle(P, e[4] + rand(-4, 4), e[5] + rand(-4, 4), PAL.white); }
+        SFX.play('zap', so);
+        break;
+      }
       case 'gp':
         if (this.near(x, y, 40)) for (let i = 0; i < 8; i++) P.add({ type: 'disc', x: x + rand(-4, 4), y: y + rand(-4, 4), r: 1, grow: 4, vx: rand(-10, 10), vy: rand(-10, 10), life: 0.8, cols: ['#d8fff0', PAL.ghost, PAL.ghostD], alpha: 0.5 });
         SFX.play('shield', so);
@@ -355,6 +363,7 @@ class ClientWorld {
     }
     for (let i = this.wrecks.length - 1; i >= 0; i--) { this.wrecks[i].update(dt, this.fx); if (this.wrecks[i].dead) this.wrecks.splice(i, 1); }
     for (let i = this.bolts.length - 1; i >= 0; i--) { this.bolts[i].t += dt; if (this.bolts[i].t > 0.35) this.bolts.splice(i, 1); }
+    for (let i = this.arcs.length - 1; i >= 0; i--) { this.arcs[i].t += dt; if (this.arcs[i].t > 0.22) this.arcs.splice(i, 1); }
     for (let i = this.flashes.length - 1; i >= 0; i--) { const f = this.flashes[i]; f.t += dt; if (f.t > f.life) this.flashes.splice(i, 1); }
     this.lightning = Math.max(0, this.lightning - dt * 4);
     this.hitT = Math.max(0, this.hitT - dt);
@@ -429,7 +438,7 @@ class ClientWorld {
   draw(ctx) {
     const cam = this.cam, vx = Math.round(cam.x - W / 2), vy = Math.round(cam.y - H / 2), t = this.t;
     Water.draw(ctx, vx - Shake.x, vy - Shake.y, t);
-    const dz = Math.hypot(cam.x - WCX, cam.y - WCY), deep = clamp((dz - 950) / 1700, 0, 1);
+    const dz = Math.hypot(cam.x - WCX, cam.y - WCY), deep = clamp((dz - 1500) / 2800, 0, 1);
     if (deep > 0) { ctx.fillStyle = 'rgba(6,8,26,' + (deep * 0.3).toFixed(3) + ')'; ctx.fillRect(0, 0, W, H); }
     ctx.save();
     ctx.translate(-vx + Shake.x, -vy + Shake.y);
@@ -466,6 +475,7 @@ class ClientWorld {
     this.fx.draw(ctx, 'over');
     this.drawBirds(ctx);
     for (const b of this.bolts) this.drawBolt(ctx, b);
+    for (const a of this.arcs) this.drawArc(ctx, a);
     for (const s of vis) this.drawTag(ctx, s);
     for (const pt of this.ports) if (this.near(pt.x, pt.y, 60)) Font.draw(ctx, pt.name, pt.x, pt.y - pt.r - 18, { align: 'center', color: PAL.sand, outline: PAL.black });
     for (const c of this.clouds) {
@@ -667,9 +677,9 @@ class ClientWorld {
       } else if (b.kind === 8) {
         ctx.fillStyle = 'rgba(255,255,255,0.18)'; ctx.fillRect(Math.round(X - b.vx * 0.03), Math.round(Z - b.vy * 0.03), 3, 3);
         drawDisc(ctx, X, Z, 2, PAL.black); ctx.fillStyle = PAL.grey; ctx.fillRect(X - 1, Z - 1, 1, 1);
-      } else if (b.kind === 9) {
+      } else if (b.kind === 9 || b.kind === 10) {
         const l = Math.hypot(b.vx, b.vy) || 1, ux = b.vx / l, uy = b.vy / l;
-        pline(ctx, X - ux * 6, Z - uy * 6, X, Z, PAL.woodL);
+        pline(ctx, X - ux * (b.kind === 10 ? 9 : 6), Z - uy * (b.kind === 10 ? 9 : 6), X, Z, PAL.woodL);
         ctx.fillStyle = PAL.white; ctx.fillRect(X, Z, 1, 1); ctx.fillStyle = PAL.silver; ctx.fillRect(Math.round(X - ux), Math.round(Z - uy), 1, 1);
       } else {
         ctx.fillStyle = 'rgba(255,255,255,0.18)'; ctx.fillRect(Math.round(X - b.vx * 0.02), Math.round(Z - b.vy * 0.02), 2, 2);
@@ -694,6 +704,18 @@ class ClientWorld {
       ctx.fillRect(X - 2, Y + o, 1, 1); ctx.fillRect(X - 1, Y, 3, 1); ctx.fillRect(X + 2, Y + o, 1, 1);
       ctx.fillStyle = PAL.grey; ctx.fillRect(X, Y + 1, 1, 1);
     }
+  }
+  // piorun cewki Tesli: poszarpana linia z jasnym rdzeniem
+  drawArc(ctx, a) {
+    const rng = mulberry32(a.seed + Math.floor(a.t * 45)), n = 9, f = 1 - a.t / 0.22;
+    let px = a.x0, py = a.y0;
+    ctx.globalAlpha = f;
+    for (let k = 1; k <= n; k++) {
+      const tt = k / n, j = k < n ? 9 : 0, nx = lerp(a.x0, a.x1, tt) + (rng() - 0.5) * j, ny = lerp(a.y0, a.y1, tt) + (rng() - 0.5) * j;
+      pline(ctx, px, py, nx, ny, PAL.cyan, 2); pline(ctx, px, py, nx, ny, PAL.white);
+      px = nx; py = ny;
+    }
+    ctx.globalAlpha = 1;
   }
   drawBolt(ctx, b) {
     const rng = mulberry32(b.seed), a = 1 - b.t / 0.35;

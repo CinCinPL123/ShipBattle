@@ -2,25 +2,36 @@
 
 Otwarte, losowo generowane morze, po którym pływasz razem z innymi kapitanami. Rozbudowujesz okręt
 jak najbardziej się da, zatapiasz rywali i siejesz strach na morzach. **Masz jedno życie** — gdy okręt
-pójdzie na dno, tracisz wszystko i zaczynasz od tratwy.
+pójdzie na dno, tracisz wszystko i zaczynasz od małej łodzi.
 
 ## Rozgrywka
 
-- **Otwarty świat** 4000×4000: 8 portów, ~60 wysp, trzy strefy — *Spokojne Wody*, *Szerokie Morze*
+- **Otwarty świat** 6400×6400: 11 portów, ponad 130 wysp, trzy strefy — *Spokojne Wody*, *Szerokie Morze*
   i *Diabelskie Głębiny*. Im dalej od środka, tym bogatsze łupy i groźniejsi piraci.
 - **Złoto** za zatapianie okrętów (graczy i piratów) oraz z dryfujących **beczek i skrzyń** — rozbij je
   kulą albo taranem, a potem podpłyń po złoto lub przedmiot. Beczki prochu wybuchają.
-- **Stocznia w porcie** (klawisz `B`): kupujesz części, ładownia przechowuje łupy, zniszczone części
-  naprawiasz za ćwierć wartości. W porcie (przerywany krąg) nikt nie może Cię skrzywdzić.
-- **Materiały kadłuba**: sosna, dąb, mahoń, żelazo, stal i upiorne drewno (tylko z łupów).
+- **Stocznia w porcie** (klawisz `B`): budujesz na obrysie kadłuba statku — siatka 15×27 kafli, spiczasty
+  dziób i zaokrąglona rufa, łącznie prawie 300 kafli. Kupujesz części, ładownia przechowuje łupy, zniszczone
+  kafle naprawiasz za ćwierć wartości. W porcie (przerywany krąg) nikt nie może Cię skrzywdzić.
+- **Kadłub i elementy na nim**: każdy kafel ma KADŁUB (poszycie), a na nim stawiasz działa, maszty
+  i sprzęt. Element nie jest podłogą — bez kadłuba pod spodem go nie postawisz, a cena to kadłub plus element.
+  Elementy na pancerzu (żelazo, stal, kolce) dostają jego wytrzymałość. `LPM` stawia, `PPM` zdejmuje:
+  najpierw element (kadłub zostaje), drugie `PPM` sam kadłub; nowy kadłub pod działem zostawia działo.
+- **Materiały kadłuba**: sosna, bambus (najlżejszy, ale kruchy i łatwopalny), dąb, mahoń, żelazo, pancerz
+  kolczasty (kto w niego uderzy, sam dostaje o połowę mocniej), stal i upiorne drewno (tylko z łupów).
 - **Działa**: armata, długie działo, karonada (śrut), smocze działo (podpala), działo łańcuchowe
-  (potrójne obrażenia masztom i wiosłom) i bombarda (kula wybucha przy trafieniu).
-- **Machiny**: krętlica (strzela sama), wyrzutnia rakiet (salwa trzech podpalających rakiet), grecki ogień
-  (miotacz ognia na krótki dystans), harpun (przywiązuje wroga liną i przyciąga), moździerz, stawiacz min
-  (miny za rufą, `Spacja`) i taran.
-- **Napęd i sprzęt**: maszt, bukszpryt z fokiem (lepsze skręcanie), wiosła, ster, kocioł parowy (napęd
-  niezależny od wiatru, wybucha po zniszczeniu), prochownia, zbrojownia (+25% obrażeń sąsiednich dział),
-  cieśla, bocianie gniazdo i żuraw ładunkowy (+12 miejsc w ładowni i dalsze wyławianie łupów).
+  (potrójne obrażenia masztom i wiosłom), bombarda (kula wybucha przy trafieniu) i balista (bełt przebija
+  kilka kolejnych części).
+- **Machiny**: krętlica, wieża artyleryjska i cewka Tesli (strzelają same; wieża i cewka mogą stać nawet
+  w środku okrętu), wyrzutnia rakiet (salwa trzech podpalających rakiet), grecki ogień (miotacz ognia
+  na krótki dystans), harpun (przywiązuje wroga liną i przyciąga), moździerz, stawiacz min (miny za rufą,
+  `Spacja`) i taran.
+- **Napęd**: maszt, bukszpryt z fokiem (lepsze skręcanie), żagiel łaciński (prawie nie traci mocy pod wiatr),
+  wiosła, koło łopatkowe (mocny napęd bez wiatru), ster i kocioł parowy (wybucha po zniszczeniu).
+- **Sprzęt**: prochownia, zbrojownia (+25% obrażeń sąsiednich dział), bęben bojowy (szybsze ładowanie dział
+  w promieniu dwóch kafli), cieśla, pompa pożarnicza (kafle w pobliżu nie płoną), tarcza burtowa (sąsiednie
+  kafle dostają o 20% mniej obrażeń), bocianie gniazdo, żuraw ładunkowy (+12 miejsc w ładowni i dalsze
+  wyławianie łupów) i magnes łupów (przyciąga dryfujące złoto i skrzynie).
 - **Jakość części**: zwykła, solidna, mistrzowska, legendarna, upiorna. Lepsza jakość to więcej obrażeń,
   szybsze ładowanie i większa wytrzymałość, a do tego inny wygląd — lufy z żeliwa, stali, brązu, złota
   i upiornej zieleni, coraz większe i barwniejsze żagle. W porcie kupisz do jakości mistrzowskiej, resztę
@@ -45,7 +56,8 @@ pójdzie na dno, tracisz wszystko i zaczynasz od tratwy.
 - **Zlecenia portowe**: kapitanat w każdym porcie daje zadanie (zatop wrogów, rozbij beczki, zbierz złoto,
   zawieź list do innego portu) z nagrodą w złocie.
 - **List gończy**: kapitan z serią zatopień ma nagrodę za głowę — 40 złota za każdego zatopionego gracza.
-- **Piraci** pływają głównie po dalszych wodach; zatopiony pirat wraca dopiero po 1,5–2,5 minuty.
+- **Piraci** pływają głównie po dalszych wodach; zatopiony pirat wraca dopiero po 1,5–2,5 minuty. Okręty botów
+  mają kształt statków (smukły dziób, zaokrąglona rufa) i rosną z budżetem — od małej barki po fregatę.
 - Cykl dnia i nocy, czat, kronika zatopień, sala sławy najlepszych żyć.
 
 ### Sterowanie

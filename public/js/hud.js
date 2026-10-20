@@ -304,10 +304,17 @@ class Hud {
     Font.draw(ctx, 'M - zamknij', x + S, y - 12, { align: 'right', color: PAL.grey });
     ctx.drawImage(this.bigBase, x, y);
     ZONES.forEach((z, i) => { if (i < 2) { ctx.globalAlpha = 0.35; drawRing(ctx, x + S / 2, y + S / 2, Math.round(z.r * k), z.col); ctx.globalAlpha = 1; } });
+    // podpisy portów: gdy dwa by się zasłaniały, drugi ląduje nad ikoną
+    const placed = [];
     for (const pt of cw.ports) {
-      const X = Math.round(x + pt.x * k), Y = Math.round(y + pt.y * k);
+      const X = Math.round(x + pt.x * k), Y = Math.round(y + pt.y * k), tw = Font.measure(pt.name);
       ctx.drawImage(Icons.port, X - 2, Y - 3);
-      Font.draw(ctx, pt.name, X, Y + 5, { align: 'center', color: PAL.sand, outline: PAL.black });
+      const hit = yy => placed.some(r => Math.abs(r.x - X) < (r.w + tw) / 2 + 2 && Math.abs(r.y - yy) < 9);
+      let ly = Y + 5;
+      if (hit(ly)) ly = Y - 13;
+      if (hit(ly)) ly = Y + 14;
+      placed.push({ x: X, y: ly, w: tw });
+      Font.draw(ctx, pt.name, X, ly, { align: 'center', color: PAL.sand, outline: PAL.black });
     }
     this.drawMapEvents(ctx, x, y, k, true);
     this.drawMapPlayers(ctx, x, y, k, true);

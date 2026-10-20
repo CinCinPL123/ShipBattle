@@ -382,7 +382,7 @@ class PlayScene {
       Font.draw(ctx, r[0], x + 16, yy, { color: PAL.silver });
       Font.draw(ctx, String(r[1]), x + pw - 16, yy, { align: 'right', color: PAL.white });
     });
-    Font.drawWrapped(ctx, 'Masz tylko jedno życie. Okręt, złoto i łupy przepadły - zaczynasz od tratwy.', W / 2, y + 144, 300, { align: 'center', color: PAL.gold, lh: 10 });
+    Font.drawWrapped(ctx, 'Masz tylko jedno życie. Okręt, złoto i łupy przepadły - zaczynasz od małej łodzi.', W / 2, y + 144, 300, { align: 'center', color: PAL.gold, lh: 10 });
     for (const b of this.deadBtns) { b.y = y + ph - 32; UI.button(ctx, b); }
     ctx.globalAlpha = 1;
   }
@@ -421,25 +421,26 @@ class HowToScene {
     UI.panel(ctx, 20, 50, 600, 272, 'wood');
     const P = this.page;
     if (P === 0) {
-      ctx.save(); ctx.translate(50, 70); ctx.scale(2, 2); ctx.drawImage(this.demoSpr.img, 0, 0); drawShipDyn(ctx, this.demo, { t, row: 0.3 }); ctx.globalAlpha = 0.7; drawSails(ctx, this.demo, { col: SHIP_COLORS[1], sail: 2 }); ctx.restore();
+      ctx.save(); ctx.translate(-14, -112); ctx.scale(2, 2); ctx.drawImage(this.demoSpr.img, 0, 0); drawShipDyn(ctx, this.demo, { t, row: 0.3 }); ctx.globalAlpha = 0.7; drawSails(ctx, this.demo, { col: SHIP_COLORS[1], sail: 2 }); ctx.restore();
       Font.draw(ctx, 'POSTRACH MÓRZ', 270, 64, { scale: 2, color: PAL.gold, shadow: PAL.black });
       this.bullets(ctx, [
         'Wypływasz razem z innymi kapitanami na wspólne, losowe morze pełne wysp, portów i piratów.',
         'Zatapiaj okręty i rozbijaj beczki, by zdobyć złoto i łupy. Za złoto w portach kupujesz lepsze części.',
         'Im mocniejszy okręt, tym wyższa SIŁA (★). Minimapa pokazuje siłę każdego gracza, a najsilniejszy nosi KORONĘ Postrachu Mórz.',
         'Kto zatopi Postrach Mórz, dostaje dodatkowe 150 złota. Kapitan z serią zatopień ma list gończy - nagrodę za głowę.',
-        'HARDKOR: masz jedno życie. Gdy okręt pójdzie na dno, tracisz wszystko i zaczynasz od tratwy.',
+        'HARDKOR: masz jedno życie. Gdy okręt pójdzie na dno, tracisz wszystko i zaczynasz od małej łodzi.',
         'W portach (przerywany krąg) nikt nie może Cię skrzywdzić - tam też naprawisz okręt.',
         'Kapitanat w każdym porcie daje ZLECENIA: zatop wrogów, rozbij beczki, zbierz złoto albo zawieź list. Nagroda trafia od razu do kufra.'
       ], 270, 80, 330);
     } else if (P === 1) {
       Font.draw(ctx, 'STOCZNIA W PORCIE (B)', 40, 64, { scale: 2, color: PAL.gold, shadow: PAL.black });
       this.bullets(ctx, [
-        'Wpłyń do portu i naciśnij B. Kupuj części, stawiaj je myszką (LPM), a PPM zdejmuje część do ładowni.',
-        'Materiały kadłuba: sosna, dąb, mahoń, żelazo, stal - i upiorne drewno ze statku widma.',
-        'Działa: armata, długie działo, karonada (śrut), smocze działo (podpala), łańcuchowe (tnie maszty) i bombarda (wybuchowa kula).',
-        'Machiny: krętlica (strzela sama), wyrzutnia rakiet, grecki ogień, harpun (przyciąga wroga), moździerz, stawiacz min i taran.',
-        'Napęd: maszt, bukszpryt z fokiem, wiosła, ster i kocioł parowy. Sprzęt: prochownia, zbrojownia (+obrażenia), cieśla, bocianie gniazdo i żuraw (+ładownia).',
+        'Wpłyń do portu i naciśnij B. Budujesz na obrysie statku: najpierw KADŁUB (poszycie), a dopiero na nim działa, maszty i sprzęt. Element nie jest podłogą - bez kadłuba pod spodem go nie postawisz.',
+        'LPM stawia, PPM zdejmuje: najpierw element (kadłub zostaje), drugie PPM zdejmuje sam kadłub. Nowy kadłub pod działem zostawia działo na miejscu. Elementy na pancerzu mają jego wytrzymałość!',
+        'Materiały kadłuba: sosna, bambus (lekki i kruchy), dąb, mahoń, żelazo, pancerz kolczasty (rani taranujących), stal - i upiorne drewno ze statku widma.',
+        'Działa: armata, długie działo, karonada (śrut), smocze działo (podpala), łańcuchowe (tnie maszty), bombarda (wybuchowa kula) i balista (bełt przebija kilka części).',
+        'Machiny: krętlica, wieża artyleryjska i cewka Tesli (strzelają same, wieża nawet z środka okrętu), wyrzutnia rakiet, grecki ogień, harpun, moździerz, stawiacz min i taran.',
+        'Napęd: maszt, bukszpryt z fokiem, żagiel łaciński, wiosła, koło łopatkowe, ster i kocioł parowy. Sprzęt: prochownia, zbrojownia, bęben bojowy, cieśla, pompa pożarnicza, tarcza burtowa, bocianie gniazdo, żuraw i magnes łupów.',
         'Każda część ma JAKOŚĆ. Lepsza jakość = więcej obrażeń, szybsze ładowanie i większa wytrzymałość. Lepsze żagle są większe i barwniejsze, a lufy zmieniają kolor: żeliwo, stal, brąz, złoto i upiorna zieleń.',
         'W porcie kupisz do jakości mistrzowskiej. Legendarne i upiorne części zdobędziesz tylko z łupów.',
         'Zniszczone części naprawisz w stoczni za ćwierć ich wartości.'
