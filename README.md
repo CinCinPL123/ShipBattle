@@ -13,16 +13,39 @@ pójdzie na dno, tracisz wszystko i zaczynasz od tratwy.
 - **Stocznia w porcie** (klawisz `B`): kupujesz części, ładownia przechowuje łupy, zniszczone części
   naprawiasz za ćwierć wartości. W porcie (przerywany krąg) nikt nie może Cię skrzywdzić.
 - **Materiały kadłuba**: sosna, dąb, mahoń, żelazo, stal i upiorne drewno (tylko z łupów).
-- **Bronie**: armata, długie działo, karonada (śrut), smocze działo (podpala), działo łańcuchowe
-  (potrójne obrażenia masztom i wiosłom), krętlica (strzela sama), moździerz, taran.
+- **Działa**: armata, długie działo, karonada (śrut), smocze działo (podpala), działo łańcuchowe
+  (potrójne obrażenia masztom i wiosłom) i bombarda (kula wybucha przy trafieniu).
+- **Machiny**: krętlica (strzela sama), wyrzutnia rakiet (salwa trzech podpalających rakiet), grecki ogień
+  (miotacz ognia na krótki dystans), harpun (przywiązuje wroga liną i przyciąga), moździerz, stawiacz min
+  (miny za rufą, `Spacja`) i taran.
+- **Napęd i sprzęt**: maszt, bukszpryt z fokiem (lepsze skręcanie), wiosła, ster, kocioł parowy (napęd
+  niezależny od wiatru, wybucha po zniszczeniu), prochownia, zbrojownia (+25% obrażeń sąsiednich dział),
+  cieśla, bocianie gniazdo i żuraw ładunkowy (+12 miejsc w ładowni i dalsze wyławianie łupów).
 - **Jakość części**: zwykła, solidna, mistrzowska, legendarna, upiorna. Lepsza jakość to więcej obrażeń,
   szybsze ładowanie i większa wytrzymałość, a do tego inny wygląd — lufy z żeliwa, stali, brązu, złota
   i upiornej zieleni, coraz większe i barwniejsze żagle. W porcie kupisz do jakości mistrzowskiej, resztę
   zdobywasz w boju.
 - **Minimapa** po prawej pokazuje każdego gracza i jego siłę (★ i kolor kropki); najsilniejszy nosi
   **koronę Postrachu Mórz** — za jego zatopienie jest +150 złota.
-- **Zdarzenia**: Statek Widmo (legendarne i upiorne łupy), Złoty Galeon (ucieka z ładownią złota),
-  wędrujący Sztorm z piorunami, Dryfujący Skarb.
+- **Zdarzenia** (co 2,5–4 minuty, najwyżej dwa naraz i tylko jeden wrogi okręt-zdarzenie naraz; każde ma
+  własny czas odnowienia, np. Statek Widmo najwyżej raz na 15 minut):
+  - Statek Widmo — legendarne i upiorne łupy, czasem Latarnia Widma,
+  - Złoty Galeon — ucieka z ładownią złota,
+  - Najazd Piratów — okręt flagowy z eskortą; flagowiec zostawia Czarną Banderę,
+  - Kraken — potwór z mackami, który miażdży okręty; zostawia Ząb Krakena,
+  - Regaty — wyścig przez 4 boje; zwycięzca dostaje Złotą Syrenę, drugi i trzeci złoto,
+  - Sztorm — wiatr i pioruny; w oku cyklonu pojawia się Butelka Burzy,
+  - Wir — wciąga okręty i łupy; w samym środku leży Perła Głębin,
+  - Mgła — kto w niej płynie, znika z mapy, a piraci go nie widzą,
+  - Dryfujący Skarb.
+- **Relikwie**: wyjątkowe części ze zdarzeń. Montujesz je w stoczni; każda zmienia wygląd okrętu
+  (fioletowy kadłub, upiorne, czarne albo burzowe żagle, złote relingi, perłowy blask) i daje premię
+  (mocniejszy taran, odporność na ogień, prędkość i złoto, obrażenia i spokój ze strony piratów,
+  wiatr zawsze z rufy, samonaprawa). Gdy zatoniesz, relikwie wypadają do wody.
+- **Zlecenia portowe**: kapitanat w każdym porcie daje zadanie (zatop wrogów, rozbij beczki, zbierz złoto,
+  zawieź list do innego portu) z nagrodą w złocie.
+- **List gończy**: kapitan z serią zatopień ma nagrodę za głowę — 40 złota za każdego zatopionego gracza.
+- **Piraci** pływają głównie po dalszych wodach; zatopiony pirat wraca dopiero po 1,5–2,5 minuty.
 - Cykl dnia i nocy, czat, kronika zatopień, sala sławy najlepszych żyć.
 
 ### Sterowanie
@@ -32,7 +55,7 @@ pójdzie na dno, tracisz wszystko i zaczynasz od tratwy.
 | Żagle | `W` / `S` |
 | Skręt | `A` / `D` |
 | Salwa lewą / prawą burtą | `Q` / `E` |
-| Moździerz i działa dziobowe | `Spacja` |
+| Moździerz, miny i działa dziobowe | `Spacja` |
 | Stocznia (w porcie) | `B` |
 | Mapa / lista graczy | `M` / `Tab` |
 | Czat | `Enter` |
@@ -82,7 +105,7 @@ Zamiast Dockerfile można też wybrać build pack **Docker Compose** — `docker
 |---|---|---|
 | `PORT` | `3000` | port HTTP i WebSocket |
 | `MAX_PLAYERS` | `40` | limit graczy jednocześnie |
-| `NPC_COUNT` | `9` | ile pirackich okrętów pływa po świecie (mniej, gdy graczy przybywa) |
+| `NPC_COUNT` | `5` | ile pirackich okrętów pływa po świecie (mniej, gdy graczy przybywa; bez okrętów ze zdarzeń) |
 | `WORLD_SEED` | losowy | stała mapa świata |
 | `DATA_DIR` | `/app/data` | gdzie zapisywać salę sławy |
 
@@ -104,5 +127,5 @@ Adresy pomocnicze: `GET /health` (zwraca `ok`) i `GET /status` (gracze online, s
 ## Testy
 
 ```bash
-npm test     # symulacja świata + test sieciowy z prawdziwym serwerem i dwoma klientami
+npm test     # symulacja świata, test zdarzeń, broni i relikwii + test sieciowy z prawdziwym serwerem
 ```

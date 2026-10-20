@@ -8,7 +8,7 @@ class ShipView {
     this.cw = cw; this.id = m.id; this.buf = [];
     this.x = 0; this.y = 0; this.ang = 0; this.vx = 0; this.vy = 0; this.w = 0; this.thr = 0; this.turn = 0;
     this.integ = 1; this.coreF = 1; this.fl = 1; this.alive = true; this.sinkT = null; this.sinking = 0; this.dead = false;
-    this.t = rand(0, 10); this.sailVis = 1; this.yawVis = 0; this.rudVis = 0; this.wakeAcc = 0; this.goneT = null; this.seen = false;
+    this.t = rand(0, 10); this.sailVis = 1; this.yawVis = 0; this.rudVis = 0; this.wakeAcc = 0; this.goneT = null; this.seen = false; this.relics = new Set(); this.skin = '';
     this.layout(m);
   }
   layout(m) {
@@ -49,6 +49,7 @@ class ShipView {
     }
     this.radius = R + 7; this.halfW = hw + 4;
     this.bowS = [this.comX, PAD + minR * TILE]; this.sternS = [this.comX, PAD + maxR * TILE + 8];
+    this.relics = relicsOf(this.blocks); this.skin = sailSkin(this.relics);
     this.redraw();
   }
   redraw() { this.spr = renderShip(this.blocks, this.col); }
@@ -115,9 +116,26 @@ class ShipView {
       if (b.burn && chance(dt * 16)) { const w = this.blockWorld(b); FX.fire(P, w[0], w[1]); if (chance(dt * 1.5)) SFX.play('crackle', { x: w[0], y: w[1] }); }
     }
     if (this.kind === 'ghost' && chance(dt * 10)) { const b = pick(this.blocks); if (b.alive) { const w = this.blockWorld(b); P.add({ type: 'disc', x: w[0], y: w[1], r: 1, grow: 4, vx: rand(-4, 4), vy: rand(-4, 4), life: 1.2, cols: ['#d8fff0', PAL.ghost, PAL.ghostD], alpha: 0.35, wind: 0.5 }); } }
+    if (this.inView(this.cw.cam, 20)) this.relicFx(dt, P);
     if (this.fl & 2 && this.integ < 1 && chance(dt * 3)) { const b = pick(this.blocks); if (b.alive) { const w = this.blockWorld(b); FX.sparkle(P, w[0] + rand(-4, 4), w[1] + rand(-4, 4), PAL.green); } }
     const fx = Math.sin(this.ang), fy = -Math.cos(this.ang);
     this.wake(dt, this.vx * fx + this.vy * fy);
+  }
+  // dym z kotłów i blask relikwii
+  relicFx(dt, P) {
+    for (const b of this.blocks) {
+      if (b.alive && b.p === 'steam' && this.thr > 0 && chance(dt * 7)) { const w = this.blockWorld(b); FX.smoke(P, w[0], w[1] - 2, 1, { dark: true, alpha: 0.55 }); }
+    }
+    const R = this.relics;
+    if (!R || !R.size || !chance(dt * 5)) return;
+    const b = pick(this.blocks); if (!b.alive) return;
+    const w = this.blockWorld(b), x = w[0] + rand(-4, 4), y = w[1] + rand(-4, 4);
+    if (R.has('lantern') && chance(0.6)) P.add({ type: 'disc', x, y, r: 1, grow: 3, vx: rand(-3, 3), vy: rand(-3, 3), life: 1, cols: ['#d8fff0', PAL.ghost, PAL.ghostD], alpha: 0.3, wind: 0.5 });
+    if (R.has('storm') && chance(0.5)) FX.sparkle(P, x, y, chance(0.5) ? PAL.cyan : PAL.yellow);
+    if (R.has('pearl') && chance(0.5)) FX.sparkle(P, x, y, chance(0.5) ? PAL.white : '#e98bc4');
+    if (R.has('figure') && chance(0.35)) FX.sparkle(P, x, y, PAL.gold);
+    if (R.has('kraken') && chance(0.4)) FX.bubbles(P, x, y);
+    if (R.has('dread') && chance(0.25)) FX.smoke(P, x, y, 1, { dark: true, alpha: 0.3 });
   }
   wake(dt, u) {
     const sp = Math.abs(u); if (sp < 4) return;
@@ -168,10 +186,10 @@ class ShipView {
     if (shadow) { ctx.globalAlpha = 0.22; ctx.translate(Math.round(this.x) + 7, Math.round(this.y) + 9); }
     else { ctx.globalAlpha = 1 - this.sinking * 2; ctx.translate(this.x, this.y); }
     ctx.rotate(this.ang); ctx.translate(-this.comX, -this.comY);
-    drawSails(ctx, this.blocks, { col: this.col, sail: lvl, yaw: this.yawVis, shadow });
+    drawSails(ctx, this.blocks, { col: this.col, sail: lvl, yaw: this.yawVis, shadow, skin: this.skin });
     if (!shadow) {
       const fb = this.blocks.find(b => b.alive && b.p === 'mast') || (this.core.alive ? this.core : null);
-      if (fb) drawFlag(ctx, PAD + fb.c * TILE + 4, PAD + fb.r * TILE + (fb.p === 'mast' ? 4 : 2), angDiff(this.ang, this.cw.wind.ang), this.col, this.t);
+      if (fb) drawFlag(ctx, PAD + fb.c * TILE + 4, PAD + fb.r * TILE + (fb.p === 'mast' ? 4 : 2), angDiff(this.ang, this.cw.wind.ang), this.col, this.t, this.relics.has('dread') ? 'dread' : null);
     }
     ctx.restore();
   }

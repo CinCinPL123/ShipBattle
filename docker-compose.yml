@@ -7,7 +7,7 @@ services:
     environment:
       PORT: 3000
       MAX_PLAYERS: 40
-      NPC_COUNT: 9
+      NPC_COUNT: 5
       # WORLD_SEED: 12345   # stała mapa świata (domyślnie losowa po każdym starcie)
     ports:
       - "3000:3000"

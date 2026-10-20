@@ -12,7 +12,7 @@ require('./load-shared')();
 const PORT = parseInt(process.env.PORT, 10) || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
 const MAX_PLAYERS = parseInt(process.env.MAX_PLAYERS, 10) || 40;
-const NPC_COUNT = process.env.NPC_COUNT !== undefined ? parseInt(process.env.NPC_COUNT, 10) : 9;
+const NPC_COUNT = process.env.NPC_COUNT !== undefined ? parseInt(process.env.NPC_COUNT, 10) : 5;
 const WORLD_SEED = parseInt(process.env.WORLD_SEED, 10) || 0;
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '..', 'data');
 const PUBLIC = path.join(__dirname, '..', 'public');

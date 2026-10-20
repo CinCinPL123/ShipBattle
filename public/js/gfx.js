@@ -126,7 +126,18 @@ function buildIcons() {
   Icons.treasure = fromMap(['.kkkkkk.', 'kggggggk', 'kdbbbbdk', 'kdbyybdk', 'kdbbbbdk', '.kkkkkk.'], C);
   Icons.port = fromMap(['..x..', '.xgx.', '..x..', 'xxgxx', '..g..', 'g.g.g', '.ggg.'], C);
   Icons.skullS = fromMap(['.xxx.', 'xSSSx', 'xxSxx', 'xSSSx', '.xSx.'], C);
+  const C2 = Object.assign({}, C, { m: '#68386c', P: '#b55088', h: PAL.ghost, p: PAL.sand, Y: PAL.gold });
+  Icons.mine = fromMap(['..x.x..', '.xxxxx.', 'xxsxxxx', '.xxxxx.', 'xxxxxxx', '.xxxxx.', '..x.x..'], C);
+  Icons.kraken = fromMap(['..mmmm..', '.mPPPPm.', 'mPyPPyPm', 'mPPPPPPm', '.mPmmPm.', 'm.m..m.m', 'm.m..m.m', '.m....m.'], C2);
+  Icons.raid = fromMap(['x......', 'xxxxxx.', 'xxSSSx.', 'xxSxSx.', 'xxxSxx.', 'xxSxSx.', 'xxxxxx.', 'x......'], C);
+  Icons.whirl = fromMap(['..BBBB..', '.B....B.', 'B..BB..B', 'B.B..B.B', 'B.B.BB.B', 'B..B...B', '.B....B.', '..BBB...'], C);
+  Icons.fog = fromMap(['........', '..eeee..', '.eSSSSe.', 'eSSSSSSe', '........', '.eeeeee.', 'eSSSSSSe', '.eeeeee.'], C);
+  Icons.buoy = fromMap(['...y...', '..xxx..', '..rwr..', '..wrw..', '..rwr..', '.xxxxx.', 'B.....B'], C);
+  Icons.relic = fromMap(['...y...', '..yYy..', 'kkyyykk', 'kgYYYgk', 'kdbybdk', 'kdbbbdk', '.kkkkk.'], C2);
+  Icons.scroll = fromMap(['.kkkkkk.', 'kppppppk', '.kpkkpk.', '.kppppk.', '.kpkkpk.', '.kppppk.', 'kppppppk', '.kkkkkk.'], C2);
 }
+// kolory blasku relikwii (kolejność jak RELICS)
+const RELIC_COL = ['#b55088', PAL.ghost, PAL.gold, PAL.red2, PAL.cyan, '#e98bc4'];
 
 // ---------- wyspy ----------
 function makeIsland(seed, r, kind) {

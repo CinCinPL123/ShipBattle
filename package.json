@@ -1,13 +1,13 @@
 {
   "name": "drzazgi",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Drzazgi - pixel-artowa gra morska multiplayer: otwarty świat, budowa okrętu, jedno życie",
   "private": true,
   "main": "server/index.js",
   "scripts": {
     "start": "node server/index.js",
     "dev": "node --watch server/index.js",
-    "test": "node test/smoke.js && node test/net.js"
+    "test": "node test/smoke.js && node test/features.js && node test/net.js"
   },
   "engines": {
     "node": ">=18"

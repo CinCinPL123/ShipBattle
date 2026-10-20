@@ -31,7 +31,7 @@ const Net = {
   startLocal(join) {
     this.close();
     this.mode = 'offline'; this.state = 'open'; this.inbox = [];
-    const world = new SimWorld({ offline: true, npc: 8, hof: Store.get('hof', []), onHof: l => Store.set('hof', l) });
+    const world = new SimWorld({ offline: true, npc: 5, hof: Store.get('hof', []), onHof: l => Store.set('hof', l) });
     this.local = { world, acc: 0, player: null };
     this.local.player = world.join(m => this.inbox.push(m), join);
   },

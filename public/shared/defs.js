@@ -13,7 +13,9 @@ const SAFE_PAD = 110;            // strefa bezpieczna portu = promień wyspy + S
 const AOI = 780;                 // zasięg widzenia serwera wokół gracza
 const BALL_G = 16, BALL_Z0 = 3;
 const SINK_TIME = 3.4;
-const VERSION = '2.0';
+const VERSION = '2.1';
+const CRANE_HOLD = 12;           // dodatkowe miejsca w ładowni za każdy żuraw (najwyżej dwa)
+const MAX_MINES = 5;             // ile min naraz może mieć jeden okręt
 
 const ZONES = [
   { name: 'Spokojne Wody', r: 1000, col: '#63c74d', mult: 1 },
@@ -40,9 +42,14 @@ const WEAPONS = {
   firegun: { reload: 3.4, dmg: 13, spd: 150, vz: 5.8, ball: 3, side: true, fire: 0.85 },
   chain: { reload: 3.0, dmg: 13, spd: 165, vz: 5.5, ball: 4, side: true, rig: 3 },
   swivel: { reload: 1.3, dmg: 7, spd: 210, vz: 3.6, ball: 5, auto: true, range: 155 },
-  mortar: { reload: 7.5, dmg: 45, mortar: true, range: 300 }
+  mortar: { reload: 7.5, dmg: 45, mortar: true, range: 300 },
+  rocket: { reload: 4.2, dmg: 9, spd: 250, vz: 3.2, ball: 6, side: true, pel: 3, spread: 0.12, fire: 0.45 },
+  flame: { reload: 2.4, dmg: 4, spd: 95, vz: 2.2, ball: 7, side: true, pel: 6, spread: 0.3, fire: 0.5 },
+  bombard: { reload: 6.8, dmg: 58, spd: 150, vz: 6, ball: 8, side: true, blast: 14 },
+  harpoon: { reload: 7, dmg: 8, spd: 200, vz: 4.2, ball: 9, side: true, tether: 6 },
+  mine: { reload: 5, dmg: 46, mine: true }
 };
-const RIGGING = new Set(['mast', 'oars', 'rudder', 'nest']);
+const RIGGING = new Set(['mast', 'oars', 'rudder', 'nest', 'jib']);
 
 // ---------- części okrętu ----------
 const PARTS = {
@@ -87,19 +94,56 @@ const PARTS = {
   carp: { name: 'Cieśla', cat: 'gear', cost: 18, mass: 2, buoy: 3, hp: 28, mat: 'wood', q: true, pitch: 1.3, tag: 'Naprawy',
     desc: 'Naprawia sąsiednie części i gasi pożary na pokładzie.' },
   nest: { name: 'Bocianie gniazdo', cat: 'gear', cost: 24, mass: 2, buoy: 2, hp: 20, mat: 'wood', q: true, pitch: 1.25, tag: '+12% zasięgu',
-    desc: 'Obserwator wypatruje celów: każde gniazdo daje +12% zasięgu wszystkich dział (najwyżej dwa).' }
+    desc: 'Obserwator wypatruje celów: każde gniazdo daje +12% zasięgu wszystkich dział (najwyżej dwa).' },
+  // ---------- nowe bronie ----------
+  bombard: { name: 'Bombarda', cat: 'weapon', cost: 48, mass: 9, buoy: 2, hp: 40, mat: 'wood', rule: 'edge', q: true, w: 'bombard', pitch: 0.55, tag: 'Wybuchowa kula',
+    desc: 'Ogromne działo oblężnicze. Kula wybucha przy trafieniu i rozrywa sąsiednie części. Ładuje się bardzo długo.' },
+  rocket: { name: 'Wyrzutnia rakiet', cat: 'weapon', cost: 38, mass: 4, buoy: 2, hp: 24, mat: 'wood', rule: 'edge', q: true, w: 'rocket', pitch: 1.0, tag: 'Salwa 3 rakiet',
+    desc: 'Odpala trzy rakiety naraz. Lecą daleko, ale niecelnie - i często wzniecają pożar.' },
+  flame: { name: 'Grecki ogień', cat: 'weapon', cost: 30, mass: 4, buoy: 2, hp: 26, mat: 'metal', metal: 'iron', rule: 'edge', q: true, w: 'flame', pitch: 0.9, tag: 'Miotacz ognia',
+    desc: 'Pluje strugą płonącej smoły na krótki dystans. Z bliska podpala wszystko, co drewniane.' },
+  harpoon: { name: 'Harpun', cat: 'weapon', cost: 32, mass: 4, buoy: 2, hp: 26, mat: 'wood', rule: 'edge', q: true, w: 'harpoon', pitch: 1.05, tag: 'Przyciąga wroga',
+    desc: 'Wbija się w kadłub i przywiązuje wroga liną na kilka sekund. Nikt Ci nie ucieknie.' },
+  mines: { name: 'Stawiacz min', cat: 'weapon', cost: 36, mass: 5, buoy: 2, hp: 28, mat: 'metal', metal: 'iron', rule: 'stern', q: true, w: 'mine', pitch: 0.7, tag: 'Tylko rufa',
+    desc: 'Zrzuca za rufę miny morskie (SPACJA). Wybuchają, gdy dotknie ich wróg. Najwyżej 5 naraz.' },
+  // ---------- nowe ulepszenia ----------
+  jib: { name: 'Bukszpryt z fokiem', cat: 'drive', cost: 16, mass: 2, buoy: 2, hp: 18, mat: 'wood', rule: 'bow', q: true, pitch: 1.3, tag: 'Tylko dziób',
+    desc: 'Trójkątny żagiel na dziobie. Trochę szybciej z wiatrem i wyraźnie lepsze skręcanie.' },
+  steam: { name: 'Kocioł parowy', cat: 'drive', cost: 44, mass: 8, buoy: 2, hp: 34, mat: 'metal', metal: 'iron', q: true, pitch: 0.6, tag: 'Napęd bez wiatru',
+    desc: 'Para pcha okręt niezależnie od wiatru. Ciężki - i wybucha, gdy zostanie zniszczony!' },
+  armory: { name: 'Zbrojownia', cat: 'gear', cost: 26, mass: 3, buoy: 2, hp: 24, mat: 'wood', q: true, pitch: 0.95, tag: '+25% obrażeń',
+    desc: 'Lepsze kule i proch: sąsiednie działa zadają o 25% więcej obrażeń (więcej przy lepszej jakości).' },
+  crane: { name: 'Żuraw ładunkowy', cat: 'gear', cost: 20, mass: 3, buoy: 3, hp: 22, mat: 'wood', pitch: 1.15, tag: '+12 ładowni',
+    desc: 'Większa ładownia (+12 miejsc, najwyżej dwa żurawie), a łupy wyławiasz z dalszej odległości.' },
+  // ---------- relikwie: tylko ze zdarzeń specjalnych ----------
+  kraken: { name: 'Ząb Krakena', cat: 'relic', cost: 160, mass: 3, buoy: 3, hp: 90, mat: 'relic', deck: 'oak', relic: true, noShop: true, pitch: 0.5, tag: 'Relikwia',
+    desc: 'Trofeum z potwora. Taran i zderzenia ranią o 60% mocniej, a Ty dostajesz o 30% mniej. Fioletowy kadłub.' },
+  lantern: { name: 'Latarnia Widma', cat: 'relic', cost: 160, mass: 1, buoy: 4, hp: 70, mat: 'relic', deck: 'ghost', relic: true, noShop: true, pitch: 1.4, tag: 'Relikwia',
+    desc: 'Okręt nie płonie, a co siódma kula wroga przelatuje przez niego jak przez mgłę. Upiorne żagle.' },
+  figure: { name: 'Złota Syrena', cat: 'relic', cost: 160, mass: 2, buoy: 3, hp: 80, mat: 'relic', deck: 'mahog', rule: 'bow', relic: true, noShop: true, pitch: 1.2, tag: 'Relikwia',
+    desc: 'Figura dziobowa zwycięzcy regat: +12% prędkości i +25% złota z morza. Złote relingi.' },
+  dread: { name: 'Czarna Bandera', cat: 'relic', cost: 160, mass: 1, buoy: 3, hp: 70, mat: 'relic', deck: 'oak', relic: true, noShop: true, pitch: 0.8, tag: 'Relikwia',
+    desc: 'Bandera pirackiego admirała: +20% obrażeń, a piraci nie atakują Cię pierwsi. Czarne żagle.' },
+  storm: { name: 'Butelka Burzy', cat: 'relic', cost: 160, mass: 1, buoy: 3, hp: 70, mat: 'relic', deck: 'oak', relic: true, noShop: true, pitch: 1.1, tag: 'Relikwia',
+    desc: 'Uwięziony sztorm. Żagle zawsze łapią wiatr, a pioruny Cię omijają. Burzowe żagle.' },
+  pearl: { name: 'Perła Głębin', cat: 'relic', cost: 160, mass: 1, buoy: 4, hp: 70, mat: 'relic', deck: 'oak', relic: true, noShop: true, pitch: 1.3, tag: 'Relikwia',
+    desc: 'Skarb z oka wiru. Okręt sam się naprawia - szybko poza walką, powoli w boju. Perłowy blask.' }
 };
+// zakładki stoczni (sklep) - kolejność taka jak w YTABS
 const CATS = [
   { id: 'hull', name: 'KADŁUB', parts: ['hull', 'oak', 'mahog', 'iron', 'steel', 'ghostw'] },
-  { id: 'weapon', name: 'BROŃ', parts: ['cannon', 'longgun', 'carro', 'firegun', 'chain', 'swivel', 'mortar', 'ram'] },
-  { id: 'drive', name: 'NAPĘD', parts: ['mast', 'oars', 'rudder'] },
-  { id: 'gear', name: 'SPRZĘT', parts: ['keg', 'carp', 'nest'] }
+  { id: 'weapon', name: 'DZIAŁA', parts: ['cannon', 'longgun', 'carro', 'firegun', 'chain', 'bombard'] },
+  { id: 'special', name: 'MACHINY', parts: ['swivel', 'rocket', 'flame', 'harpoon', 'mortar', 'mines', 'ram'] },
+  { id: 'drive', name: 'NAPĘD', parts: ['mast', 'jib', 'oars', 'rudder', 'steam'] },
+  { id: 'gear', name: 'SPRZĘT', parts: ['keg', 'armory', 'carp', 'nest', 'crane'] }
 ];
+const RELICS = ['kraken', 'lantern', 'figure', 'dread', 'storm', 'pearl'];
+const isRelic = p => !!(PARTS[p] && PARTS[p].relic);
 const RULE_MSG = {
   edge: 'Działo potrzebuje otwartej wody obok',
   side: 'Wiosła tylko na lewej lub prawej burcie',
-  stern: 'Ster tylko na rufie - z tyłu musi być woda',
-  bow: 'Taran tylko na dziobie - z przodu musi być woda'
+  stern: 'Tylko na rufie - z tyłu musi być woda',
+  bow: 'Tylko na dziobie - z przodu musi być woda'
 };
 const RULE_TAG = { edge: 'PRZY WODZIE', side: 'BURTA', stern: 'RUFA', bow: 'DZIÓB' };
 const DIRS4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
@@ -135,6 +179,9 @@ const SHIP_COLORS = [
   { name: 'Kupiecka', c: '#fee761', d: '#c27a1f', l: '#ffffff', dd: '#6b3f12' }
 ];
 const N_PLAYER_COLORS = 8, COL_PIRATE = 8, COL_GHOST = 9, COL_MERCHANT = 10;
+
+// ---------- zlecenia portowe ----------
+const CT_TYPES = ['npc', 'bar', 'gold', 'port'];
 
 // ---------- siła okrętu ----------
 const POWER_TIERS = [

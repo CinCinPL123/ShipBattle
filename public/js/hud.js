@@ -3,6 +3,18 @@
    HUD: panel okrętu, kompas, minimapa z siłą graczy,
    ranking, kronika zdarzeń, czat, ogłoszenia, duża mapa
    ========================================================= */
+// zdarzenia na mapie: ikona, kolor i podpis
+const MAP_EV = {
+  ghost: { icon: 'ghost', col: PAL.ghost, name: 'STATEK WIDMO' },
+  merchant: { icon: 'merchant', col: PAL.gold, name: 'ZŁOTY GALEON' },
+  storm: { icon: 'storm', col: PAL.cyan, fill: '#3a4466', name: 'SZTORM' },
+  treasure: { icon: 'treasure', col: PAL.gold, name: 'SKARB' },
+  raid: { icon: 'raid', col: PAL.red2, name: 'NAJAZD PIRATÓW' },
+  kraken: { icon: 'kraken', col: '#e98bc4', name: 'KRAKEN' },
+  whirl: { icon: 'whirl', col: PAL.blue2, fill: '#0b2c56', name: 'WIR' },
+  fog: { icon: 'fog', col: PAL.silver, fill: '#8b9bb4', name: 'MGŁA' },
+  regatta: { icon: 'buoy', col: PAL.yellow, name: 'REGATY' }
+};
 class Hud {
   constructor(cw) {
     this.cw = cw; this.feedList = []; this.banners = []; this.toasts = []; this.t = 0; this.bigMap = null;
@@ -25,7 +37,7 @@ class Hud {
   }
   draw(ctx, o) {
     const cw = this.cw, s = cw.myShip;
-    if (s && !s.dead) this.drawShipPanel(ctx, s);
+    if (s && !s.dead) { this.drawShipPanel(ctx, s); this.drawTasks(ctx, s); }
     this.drawCompass(ctx);
     this.drawMinimap(ctx, W - 110, 6, 104);
     this.drawBoard(ctx, W - 110, 116);
@@ -91,7 +103,44 @@ class Hud {
     Font.draw(ctx, String(me.gold), X + 14, gy + 5, { color: gf && (Math.floor(this.t * 12) & 1) ? PAL.white : PAL.yellow, shadow: PAL.black });
     if (me.goldFlash > 0) me.goldFlash -= 1 / 60;
     ctx.drawImage(Icons.chest, X + 62, gy + 5);
-    Font.draw(ctx, String(me.n), X + 72, gy + 5, { color: me.n >= MAX_HOLD ? PAL.red2 : PAL.silver, shadow: PAL.black });
+    Font.draw(ctx, String(me.n), X + 72, gy + 5, { color: me.n >= (me.cap || MAX_HOLD) ? PAL.red2 : PAL.silver, shadow: PAL.black });
+  }
+  // zlecenie portowe i regaty pod panelem okrętu, strzałki do celu na krawędzi ekranu
+  drawTasks(ctx, s) {
+    const cw = this.cw, me = cw.me;
+    let y = 64;
+    if (me.ct) {
+      const [ti, have, need, reward, to] = me.ct, type = CT_TYPES[ti], port = cw.ports[to];
+      const txt = type === 'npc' ? 'Zatop wrogów ' + have + '/' + need : type === 'bar' ? 'Rozbij beczki ' + have + '/' + need
+        : type === 'gold' ? 'Złoto z morza ' + have + '/' + need : 'List do: ' + (port ? port.name : '?');
+      const w = Math.max(150, Font.measure(txt) + Font.measure('+' + reward) + 30);
+      UI.panel(ctx, 4, y, w, 16, 'dark');
+      ctx.drawImage(Icons.scroll, 8, y + 4);
+      Font.draw(ctx, txt, 19, y + 5, { color: PAL.sand, shadow: PAL.black });
+      Font.draw(ctx, '+' + reward, 4 + w - 5, y + 5, { align: 'right', color: PAL.gold, shadow: PAL.black });
+      if (type === 'port' && port && s.alive) this.edgeArrow(ctx, port.x, port.y, PAL.sand, 'L');
+      y += 19;
+    }
+    const rg = me.rg, ev = cw.map.ev.find(e => e[0] === 'regatta');
+    if (rg && ev) {
+      const done = rg[1] > 0, txt = done ? 'REGATY: META! ' + rg[1] + '. miejsce' : 'REGATY: boja ' + (rg[0] + 1) + '/4';
+      UI.panel(ctx, 4, y, Font.measure(txt) + 22, 16, 'dark');
+      ctx.drawImage(Icons.buoy, 8, y + 4);
+      Font.draw(ctx, txt, 18, y + 5, { color: done ? PAL.green : PAL.yellow, shadow: PAL.black });
+      if (!done && ev[5] && s.alive) this.edgeArrow(ctx, ev[5][rg[0] * 2], ev[5][rg[0] * 2 + 1], PAL.yellow, String(rg[0] + 1));
+    }
+  }
+  // strzałka na krawędzi ekranu wskazująca punkt poza widokiem
+  edgeArrow(ctx, wx, wy, col, label) {
+    const cam = this.cw.cam, dx = wx - cam.x, dy = wy - cam.y;
+    if (Math.abs(dx) < W / 2 - 20 && Math.abs(dy) < H / 2 - 20) return;
+    const a = Math.atan2(dy, dx), m = 26, k = Math.min((W / 2 - m) / Math.abs(Math.cos(a) || 1e-6), (H / 2 - m) / Math.abs(Math.sin(a) || 1e-6));
+    const X = Math.round(W / 2 + Math.cos(a) * k), Y = Math.round(H / 2 + Math.sin(a) * k), ca = Math.cos(a), sa = Math.sin(a);
+    const pulse = 0.6 + 0.4 * Math.sin(this.t * 6);
+    ctx.globalAlpha = pulse;
+    for (let i = 0; i < 6; i++) { const w = 6 - i; pline(ctx, X + ca * i - sa * w, Y + sa * i + ca * w, X + ca * i + sa * w, Y + sa * i - ca * w, col); }
+    ctx.globalAlpha = 1;
+    Font.draw(ctx, label, X - ca * 9, Y - sa * 9 - 3, { align: 'center', color: col, outline: PAL.black });
   }
   drawCompass(ctx) {
     const cw = this.cw, cx = W / 2, cy = 17, a = cw.wind.ang, dx = Math.sin(a), dy = -Math.cos(a);
@@ -126,26 +175,34 @@ class Hud {
   drawMapEvents(ctx, x, y, k, big) {
     const t = this.t;
     for (const e of this.cw.map.ev) {
-      const X = Math.round(x + e[1] * k), Y = Math.round(y + e[2] * k);
-      if (e[0] === 'storm') {
+      const X = Math.round(x + e[1] * k), Y = Math.round(y + e[2] * k), M = MAP_EV[e[0]] || MAP_EV.treasure;
+      if (e[0] === 'storm' || e[0] === 'fog' || e[0] === 'whirl') {
         const r = Math.max(2, Math.round(e[3] * k));
-        ctx.globalAlpha = 0.5; drawDisc(ctx, X, Y, r, '#3a4466'); ctx.globalAlpha = 0.8; drawRing(ctx, X, Y, r, PAL.cyan); ctx.globalAlpha = 1;
-        ctx.drawImage(Icons.storm, X - 4, Y - 4);
+        ctx.globalAlpha = 0.5; drawDisc(ctx, X, Y, r, M.fill); ctx.globalAlpha = 0.8; drawRing(ctx, X, Y, r, M.col); ctx.globalAlpha = 1;
+        ctx.drawImage(Icons[M.icon], X - 4, Y - 4);
+      } else if (e[0] === 'regatta' && e[5]) {
+        const B = e[5], next = this.cw.me.rg ? this.cw.me.rg[0] : -1;
+        for (let i = 0; i < 4; i++) {
+          const bx = Math.round(x + B[i * 2] * k), by = Math.round(y + B[i * 2 + 1] * k);
+          ctx.fillStyle = PAL.black; ctx.fillRect(bx - 1, by - 1, 3, 3);
+          ctx.fillStyle = i < next ? PAL.green : i === next && (Math.floor(t * 4) & 1) ? PAL.white : PAL.yellow; ctx.fillRect(bx, by, 1, 1);
+          if (big) Font.draw(ctx, String(i + 1), bx + 3, by - 3, { color: PAL.yellow, outline: PAL.black });
+        }
       } else {
-        const ic = e[0] === 'ghost' ? Icons.ghost : e[0] === 'merchant' ? Icons.merchant : Icons.treasure;
+        const ic = Icons[M.icon];
         if ((Math.floor(t * 3) & 1) || big) ctx.drawImage(ic, X - (ic.width >> 1), Y - (ic.height >> 1));
-        else { ctx.globalAlpha = 0.6; drawRing(ctx, X, Y, 6, e[0] === 'ghost' ? PAL.ghost : PAL.gold); ctx.globalAlpha = 1; }
+        else { ctx.globalAlpha = 0.6; drawRing(ctx, X, Y, 6, M.col); ctx.globalAlpha = 1; }
       }
-      if (big) {
-        const label = { ghost: 'STATEK WIDMO', merchant: 'ZŁOTY GALEON', storm: 'SZTORM', treasure: 'SKARB' }[e[0]];
-        Font.draw(ctx, label, X, Y + 8, { align: 'center', color: e[0] === 'ghost' ? PAL.ghost : e[0] === 'storm' ? PAL.cyan : PAL.gold, outline: PAL.black });
-      }
+      if (big) Font.draw(ctx, M.name, X, Y + (e[0] === 'regatta' ? 2 : 8), { align: 'center', color: M.col, outline: PAL.black });
     }
+    // cel zlecenia: port docelowy mruga
+    const ct = this.cw.me.ct, port = ct && CT_TYPES[ct[0]] === 'port' ? this.cw.ports[ct[4]] : null;
+    if (port && (Math.floor(t * 4) & 1)) drawRing(ctx, Math.round(x + port.x * k), Math.round(y + port.y * k), big ? 7 : 4, PAL.sand);
   }
   drawMapPlayers(ctx, x, y, k, big) {
     const cw = this.cw, me = cw.myShip;
     for (const p of cw.map.pl) {
-      if (p[7] === cw.me.shipId) continue;
+      if (p[7] === cw.me.shipId || p[9]) continue;
       const X = Math.round(x + p[2] * k), Y = Math.round(y + p[3] * k), tier = powerTier(p[4]), r = 1 + Math.floor(tier / 2) + (big ? 1 : 0);
       ctx.fillStyle = PAL.black; ctx.fillRect(X - r - 1, Y - r - 1, r * 2 + 3, r * 2 + 3);
       ctx.fillStyle = POWER_TIERS[tier].col; ctx.fillRect(X - r, Y - r, r * 2 + 1, r * 2 + 1);
@@ -220,8 +277,8 @@ class Hud {
     if (o.hintT > 0) {
       const a = clamp(o.hintT, 0, 1);
       ctx.globalAlpha = a;
-      const rows = [['STER', 'W/S żagle   A/D skręt   (też strzałki)'], ['OGIEŃ', 'Q lewa burta   E prawa burta   SPACJA moździerz i dziób'], ['INNE', 'B stocznia w porcie   M mapa   TAB gracze   ENTER czat']];
-      const h = rows.length * 11 + 8, w = 340, x = W / 2 - w / 2, y = 48;
+      const rows = [['STER', 'W/S żagle   A/D skręt   (też strzałki)'], ['OGIEŃ', 'Q lewa burta  E prawa burta  SPACJA moździerz, miny'], ['INNE', 'B stocznia (port)  M mapa  TAB gracze  ENTER czat']];
+      const h = rows.length * 11 + 8, w = 322, x = 204, y = 48;
       UI.panel(ctx, x, y, w, h, 'dark');
       rows.forEach((r, i) => { Font.draw(ctx, r[0], x + 8, y + 5 + i * 11, { color: PAL.gold }); Font.draw(ctx, r[1], x + 52, y + 5 + i * 11, { color: PAL.silver }); });
       ctx.globalAlpha = 1;

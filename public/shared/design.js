@@ -93,6 +93,15 @@ const Design = {
     for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) if ((dc || dr) && Design.kind(a, c + dc, r + dr) === 'keg') return true;
     return false;
   },
+  // mnożnik obrażeń od sąsiedniej zbrojowni (najlepsza się liczy)
+  armK(a, c, r) {
+    let k = 1;
+    for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+      const x = (dc || dr) ? Design.get(a, c + dc, r + dr) : null;
+      if (x && x.p === 'armory') k = Math.max(k, armoryK(x.q));
+    }
+    return k;
+  },
   stats(a) {
     const list = Design.list(a), ph = shipPhys(list);
     const open = (c, r) => Design.open(a, c, r);
@@ -100,34 +109,37 @@ const Design = {
     for (const b of list) if (b.p === 'nest') nest++;
     const rngK = 1 + Math.min(2, nest) * 0.12;
     let range = 0;
+    const relic = new Set(list.filter(b => isRelic(b.p)).map(b => b.p));
     for (const b of list) {
       const P = PARTS[b.p]; if (!P.w) continue;
       const Wd = WEAPONS[P.w], Q = QUAL[b.q], keg = Design.kegNear(a, b.c, b.r) ? 0.6 : 1;
       if (Wd.side && !Design.facing(open, b.c, b.r)) continue;
-      const dmg = Wd.dmg * (Wd.pel || 1) * Q.dmg;
+      const dmg = Wd.dmg * (Wd.pel || 1) * Q.dmg * Design.armK(a, b.c, b.r) * (relic.has('dread') ? 1.2 : 1);
       fire += dmg / (Wd.reload * Q.rl * keg);
-      if (Wd.mortar) nM++; else nG++;
+      if (Wd.mortar) nM++; else if (!Wd.mine) nG++;
       if (Wd.spd) range = Math.max(range, ballRange(Wd.spd * Q.rng * rngK, Wd.vz));
     }
     for (const b of list) if (b.p === 'mast') nS++;
-    const value = Design.value(a);
-    return { ph, speed: physSpeed(ph, 0.8), turn: physTurn(ph, 1), fire, hp: ph.hp, load: ph.load, nG, nM, nS, n: list.length, value, power: shipPower(value), range };
+    const value = Design.value(a), speed = physSpeed(ph, relic.has('storm') ? 0.85 : 0.8) * (relic.has('figure') ? 1.12 : 1);
+    return { ph, speed, turn: physTurn(ph, 1), fire, hp: ph.hp, load: ph.load, nG, nM, nS, n: list.length, value, power: shipPower(value), range, relic };
   }
 };
 const TPL_KEY = {
   H: 'hull', D: 'oak', Y: 'mahog', A: 'iron', Z: 'steel', G: 'ghostw', C: 'cannon', L: 'longgun', X: 'carro', F: 'firegun', N: 'chain',
-  V: 'swivel', M: 'mortar', T: 'ram', S: 'mast', O: 'oars', R: 'rudder', K: 'keg', W: 'carp', B: 'nest', '@': 'core'
+  V: 'swivel', M: 'mortar', T: 'ram', S: 'mast', O: 'oars', R: 'rudder', K: 'keg', W: 'carp', B: 'nest', '@': 'core',
+  U: 'bombard', Q: 'rocket', E: 'flame', J: 'harpoon', I: 'mines', P: 'jib', p: 'steam', a: 'armory', z: 'crane'
 };
 const STARTER_ROWS = ['...........', '...........', '...........', '...........', '...........', '.....H.....', '....CSC....', '....H@H....', '....OHO....', '.....R.....',
   '...........', '...........', '...........', '...........', '...........'];
 function shipPower(value) { return Math.round(value / 10); }
+function armoryK(q) { return 1 + 0.25 * QUAL[q || 0].pow; }
 // zasięg kuli wystrzelonej z wysokości BALL_Z0
 function ballRange(spd, vz) { return spd * (vz + Math.sqrt(vz * vz + 2 * BALL_G * BALL_Z0)) / BALL_G; }
 
 // ---------- fizyka konstrukcji ----------
 // lista: [{p, q, c, r, f (ułamek hp), hp}]
 function shipPhys(list) {
-  let mass = 0, buoy = 0, mx = 0, my = 0, hp = 0, sail = 0, oar = 0, oarTurn = 0, nOar = 0, nMast = 0;
+  let mass = 0, buoy = 0, mx = 0, my = 0, hp = 0, sail = 0, oar = 0, oarTurn = 0, nOar = 0, nMast = 0, steam = 0;
   const rud = [];
   for (const b of list) {
     const P = PARTS[b.p], f = b.f === undefined ? 1 : b.f, pw = hasQ(b.p) ? QUAL[b.q || 0].pow : 1;
@@ -136,6 +148,8 @@ function shipPhys(list) {
     if (b.p === 'mast') { sail += 26 * pw * (0.45 + 0.55 * f); nMast++; }
     if (b.p === 'oars') { oar += 9 * pw * (0.5 + 0.5 * f); oarTurn += 0.45 * pw * (0.5 + 0.5 * f); nOar++; }
     if (b.p === 'rudder') rud.push(pw * (0.5 + 0.5 * f));
+    if (b.p === 'jib') { sail += 12 * pw * (0.45 + 0.55 * f); oarTurn += 0.3 * pw * (0.5 + 0.5 * f); }
+    if (b.p === 'steam') steam += 20 * pw * (0.5 + 0.5 * f);
   }
   if (!mass) mass = 1;
   const comC = mx / mass, comR = my / mass;
@@ -145,9 +159,9 @@ function shipPhys(list) {
   let rudder = 0; rud.forEach((f, i) => { rudder += 1.7 * Math.pow(0.5, i) * f; });
   const load = mass / Math.max(1, buoy);
   const over = load <= 1 ? 1 : Math.max(0.3, 1 - (load - 1) * 1.6);
-  return { mass, buoy, load, over, comC, comR, I, sail, oar, oarTurn, nOar, nMast, rudder, hp, coreT: 5 };
+  return { mass, buoy, load, over, comC, comR, I, sail, oar, oarTurn, nOar, nMast, rudder, hp, steam, coreT: 5 };
 }
-function physThrust(ph, windF) { return ph.coreT + ph.sail * windF + ph.oar; }
+function physThrust(ph, windF) { return ph.coreT + ph.sail * windF + ph.oar + (ph.steam || 0); }
 function physSpeed(ph, windF) { return Math.min(90, 8.6 * physThrust(ph, windF) / Math.sqrt(ph.mass) * ph.over); }
 function physAccel(ph, windF) { return clamp(physThrust(ph, windF) / ph.mass * 1.3, 0.3, 2.0); }
 function physTurn(ph, speedFrac) {

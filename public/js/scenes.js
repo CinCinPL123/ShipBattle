@@ -391,7 +391,7 @@ class PlayScene {
 // ---------- jak grać ----------
 class HowToScene {
   constructor() {
-    this.t = 0; this.page = 0; this.pages = ['CEL', 'STOCZNIA', 'ŁUPY', 'ZDARZENIA', 'STEROWANIE'];
+    this.t = 0; this.page = 0; this.pages = ['CEL', 'STOCZNIA', 'ŁUPY', 'ZDARZENIA', 'RELIKWIE', 'STEROWANIE'];
     this.btnPrev = { x: 20, y: 330, w: 90, h: 18, label: 'WSTECZ' };
     this.btnNext = { x: W - 110, y: 330, w: 90, h: 18, label: 'DALEJ', primary: true };
     const a = Design.fromRows(TEMPLATES.bryg.rows, 1); this.demo = Design.list(a).map(b => Object.assign(b, { alive: true })); this.demoSpr = renderShip(this.demo, SHIP_COLORS[1]);
@@ -414,9 +414,9 @@ class HowToScene {
     drawSeaBackdrop(ctx, t);
     Font.draw(ctx, 'JAK GRAĆ', W / 2, 10, { align: 'center', scale: 2, color: PAL.gold, outline: PAL.black });
     this.pages.forEach((p, i) => {
-      const x = W / 2 - 220 + i * 88;
-      Font.draw(ctx, (i + 1) + '. ' + p, x + 44, 32, { align: 'center', color: i === this.page ? PAL.white : PAL.steel, shadow: PAL.black });
-      if (i === this.page) { ctx.fillStyle = PAL.gold; ctx.fillRect(x + 14, 42, 60, 1); }
+      const x = 20 + i * 100;
+      Font.draw(ctx, (i + 1) + '. ' + p, x + 50, 32, { align: 'center', color: i === this.page ? PAL.white : PAL.steel, shadow: PAL.black });
+      if (i === this.page) { ctx.fillStyle = PAL.gold; ctx.fillRect(x + 20, 42, 60, 1); }
     });
     UI.panel(ctx, 20, 50, 600, 272, 'wood');
     const P = this.page;
@@ -427,16 +427,19 @@ class HowToScene {
         'Wypływasz razem z innymi kapitanami na wspólne, losowe morze pełne wysp, portów i piratów.',
         'Zatapiaj okręty i rozbijaj beczki, by zdobyć złoto i łupy. Za złoto w portach kupujesz lepsze części.',
         'Im mocniejszy okręt, tym wyższa SIŁA (★). Minimapa pokazuje siłę każdego gracza, a najsilniejszy nosi KORONĘ Postrachu Mórz.',
-        'Kto zatopi Postrach Mórz, dostaje dodatkowe 150 złota.',
+        'Kto zatopi Postrach Mórz, dostaje dodatkowe 150 złota. Kapitan z serią zatopień ma list gończy - nagrodę za głowę.',
         'HARDKOR: masz jedno życie. Gdy okręt pójdzie na dno, tracisz wszystko i zaczynasz od tratwy.',
-        'W portach (przerywany krąg) nikt nie może Cię skrzywdzić - tam też naprawisz okręt.'
-      ], 270, 86, 330);
+        'W portach (przerywany krąg) nikt nie może Cię skrzywdzić - tam też naprawisz okręt.',
+        'Kapitanat w każdym porcie daje ZLECENIA: zatop wrogów, rozbij beczki, zbierz złoto albo zawieź list. Nagroda trafia od razu do kufra.'
+      ], 270, 80, 330);
     } else if (P === 1) {
       Font.draw(ctx, 'STOCZNIA W PORCIE (B)', 40, 64, { scale: 2, color: PAL.gold, shadow: PAL.black });
       this.bullets(ctx, [
         'Wpłyń do portu i naciśnij B. Kupuj części, stawiaj je myszką (LPM), a PPM zdejmuje część do ładowni.',
         'Materiały kadłuba: sosna, dąb, mahoń, żelazo, stal - i upiorne drewno ze statku widma.',
-        'Bronie: armata, długie działo, karonada (śrut), smocze działo (podpala), działo łańcuchowe (tnie maszty), krętlica (strzela sama) i moździerz.',
+        'Działa: armata, długie działo, karonada (śrut), smocze działo (podpala), łańcuchowe (tnie maszty) i bombarda (wybuchowa kula).',
+        'Machiny: krętlica (strzela sama), wyrzutnia rakiet, grecki ogień, harpun (przyciąga wroga), moździerz, stawiacz min i taran.',
+        'Napęd: maszt, bukszpryt z fokiem, wiosła, ster i kocioł parowy. Sprzęt: prochownia, zbrojownia (+obrażenia), cieśla, bocianie gniazdo i żuraw (+ładownia).',
         'Każda część ma JAKOŚĆ. Lepsza jakość = więcej obrażeń, szybsze ładowanie i większa wytrzymałość. Lepsze żagle są większe i barwniejsze, a lufy zmieniają kolor: żeliwo, stal, brąz, złoto i upiorna zieleń.',
         'W porcie kupisz do jakości mistrzowskiej. Legendarne i upiorne części zdobędziesz tylko z łupów.',
         'Zniszczone części naprawisz w stoczni za ćwierć ich wartości.'
@@ -449,23 +452,39 @@ class HowToScene {
         'Beczki prochu wybuchają! Skrzynie są twarde, ale kryją najlepsze łupy.',
         'Im dalej od środka morza, tym bogatsze łupy i groźniejsi piraci: Spokojne Wody, Szerokie Morze, Diabelskie Głębiny.',
         'Zatopiony okręt zostawia złoto i części w wodzie - kto pierwszy, ten lepszy.',
-        'Przedmioty trafiają do ładowni (najwyżej ' + MAX_HOLD + '). Możesz je zamontować albo sprzedać w porcie.'
+        'Przedmioty trafiają do ładowni (najwyżej ' + MAX_HOLD + ', żuraw dodaje miejsca). Możesz je zamontować albo sprzedać w porcie.'
       ], 40, 104, 560);
     } else if (P === 3) {
-      Font.draw(ctx, 'ZDARZENIA NA MORZU', 40, 64, { scale: 2, color: PAL.gold, shadow: PAL.black });
-      const ev = [[Icons.ghost, 'STATEK WIDMO', 'Upiorny okręt wynurza się z głębin. Groźny, ale z jego wraku wypadają legendarne i upiorne części oraz upiorne drewno.', PAL.ghost],
-        [Icons.merchant, 'ZŁOTY GALEON', 'Kupiec z pełną ładownią ucieka przed każdym. Dogoń go, a zgarniesz górę złota.', PAL.gold],
-        [Icons.storm, 'SZTORM', 'Wędrująca burza z silnym wiatrem. Pioruny trafiają w okręty i wzniecają pożary.', PAL.cyan],
-        [Icons.treasure, 'DRYFUJĄCY SKARB', 'Rozsypane skrzynie i beczki w jednym miejscu. Wyścig o łupy gotowy.', PAL.yellow]];
+      Font.draw(ctx, 'ZDARZENIA NA MORZU', 40, 58, { scale: 2, color: PAL.gold, shadow: PAL.black });
+      const ev = [['ghost', 'Upiorny okręt z głębin. Z wraku wypadają legendarne łupy, a czasem Latarnia Widma.'],
+        ['merchant', 'Kupiec z ładownią złota ucieka przed każdym. Dogoń go (harpun!) i zgarnij górę złota.'],
+        ['raid', 'Flagowiec z eskortą. Zatop okręt flagowy, a zdobędziesz Czarną Banderę.'],
+        ['kraken', 'Potwór z mackami miażdży okręty. Pokonajcie go razem - wypadnie Ząb Krakena.'],
+        ['regatta', 'Wyścig przez 4 boje. Pierwszy na mecie dostaje Złotą Syrenę, drugi i trzeci złoto.'],
+        ['storm', 'Burza z silnym wiatrem i piorunami. W oku cyklonu pojawia się Butelka Burzy.'],
+        ['whirl', 'Wciąga okręty i łupy. W samym oku leży Perła Głębin - ale środek kruszy kadłub.'],
+        ['fog', 'Kto w niej płynie, znika z mapy, a piraci go nie widzą. Kryje też beczki ze skarbami.'],
+        ['treasure', 'Rozsypane skrzynie i beczki w jednym miejscu. Wyścig o łupy gotowy.']];
       ev.forEach((e, i) => {
-        const y = 92 + i * 52;
-        ctx.save(); ctx.translate(44, y); ctx.scale(2, 2); ctx.drawImage(e[0], 0, 0); ctx.restore();
-        Font.draw(ctx, e[1], 80, y, { color: e[3], shadow: PAL.black });
-        Font.drawWrapped(ctx, e[2], 80, y + 12, 500, { color: PAL.silver, lh: 10 });
+        const M = MAP_EV[e[0]], x = i < 5 ? 36 : 330, y = 80 + (i % 5) * 48;
+        ctx.save(); ctx.translate(x, y); ctx.scale(2, 2); ctx.drawImage(Icons[M.icon], 0, 0); ctx.restore();
+        Font.draw(ctx, M.name, x + 24, y, { color: M.col, shadow: PAL.black });
+        Font.drawWrapped(ctx, e[1], x + 24, y + 11, 250, { color: PAL.silver, lh: 9 });
+      });
+    } else if (P === 4) {
+      Font.draw(ctx, 'RELIKWIE', 40, 58, { scale: 2, color: PAL.gold, shadow: PAL.black });
+      Font.drawWrapped(ctx, 'Relikwie zdobywasz tylko w zdarzeniach. Montujesz je w stoczni jak zwykłe części - zmieniają wygląd okrętu i dają premię. Gdy zatoniesz, wypadają do wody!', 40, 78, 560, { color: PAL.silver, lh: 10 });
+      const from = { kraken: 'Kraken', lantern: 'Statek Widmo', figure: 'Regaty', dread: 'Najazd Piratów', storm: 'Sztorm', pearl: 'Wir' };
+      RELICS.forEach((r, i) => {
+        const x = i < 3 ? 36 : 330, y = 106 + (i % 3) * 70, P2 = PARTS[r];
+        ctx.save(); ctx.translate(x - 4, y - 4); ctx.scale(2, 2); ctx.drawImage(PartIcons.get(r, 0, SHIP_COLORS[1]), 0, 0); ctx.restore();
+        Font.draw(ctx, P2.name.toUpperCase(), x + 30, y, { color: RELIC_COL[i], shadow: PAL.black });
+        Font.draw(ctx, from[r], x + 250, y, { align: 'right', color: PAL.steel });
+        Font.drawWrapped(ctx, P2.desc, x + 30, y + 11, 225, { color: PAL.silver, lh: 9 });
       });
     } else {
       Font.draw(ctx, 'STEROWANIE', 40, 64, { scale: 2, color: PAL.gold, shadow: PAL.black });
-      const rows = [['Żagle', 'W / S'], ['Skręt', 'A / D'], ['Lewa burta', 'Q'], ['Prawa burta', 'E'], ['Moździerz, dziób', 'SPACJA'], ['Stocznia (w porcie)', 'B'], ['Mapa', 'M'], ['Lista graczy', 'TAB'], ['Czat', 'ENTER'], ['Pauza', 'ESC']];
+      const rows = [['Żagle', 'W / S'], ['Skręt', 'A / D'], ['Lewa burta', 'Q'], ['Prawa burta', 'E'], ['Moździerz, miny, dziób', 'SPACJA'], ['Stocznia (w porcie)', 'B'], ['Mapa', 'M'], ['Lista graczy', 'TAB'], ['Czat', 'ENTER'], ['Pauza', 'ESC']];
       rows.forEach((r, i) => {
         const col = i < 5 ? 0 : 1, y = 92 + (i % 5) * 20, x = 60 + col * 280;
         Font.draw(ctx, r[0], x, y + 2, { color: PAL.silver });

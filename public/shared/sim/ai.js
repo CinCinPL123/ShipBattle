@@ -17,8 +17,12 @@ const TEMPLATES = {
   widmo: { arche: 'broad', rows: ['.....G.....', '....GGG....', '...LGSGL...', '..CGGGGGC..', '..GKGGGKG..', '.CGGGSGGGC.', '.GGGWGWGGG.', '.CGGG@GGGC.',
     '.GGKGGGKGG.', '.CGGGSGGGC.', '..OGGGGGO..', '..OGGMGGO..', '...GGGGG...', '....GRG....', '...........'] },
   kupiec: { arche: 'raider', rows: ['...........', '...........', '.....H.....', '....HHH....', '...HHSHH...', '...HDDDH...', '...VHSHV...', '...HD@DH...',
-    '...HDDDH...', '...HHSHH...', '...OHHHO...', '....HRH....', '...........', '...........', '...........'] }
+    '...HDDDH...', '...HHSHH...', '...OHHHO...', '....HRH....', '...........', '...........', '...........'] },
+  // okręt flagowy Najazdu Piratów
+  flagowiec: { arche: 'broad', rows: ['.....T.....', '....AHA....', '...CHSHC...', '..QHHHHHQ..', '..CKHHHKC..', '..UHHSHHU..', '..HHWHWHH..', '..CHH@HHC..',
+    '..HKHHHKH..', '..CHHSHHC..', '..OHHHHHO..', '..OHHMHHO..', '...HHHHH...', '....HRH....', '...........'] }
 };
+const NPC_ONLY = ['widmo', 'kupiec', 'tratwa', 'flagowiec'];
 const ARCH_W = {
   broad: { cannon: 10, mast: 7, oars: 3, iron: 1.5, keg: 6, carp: 2.5, mortar: 2, rudder: 9, ram: 0, ext: 4 },
   ram: { cannon: 3, mast: 7, oars: 6, iron: 7, keg: 0, carp: 3, mortar: 1, rudder: 9, ram: 12, ext: 3 },
@@ -131,7 +135,7 @@ const AIBuild = {
   make(budget, level, o) {
     o = o || {};
     const rng = Math.random, q = o.q || 0;
-    const pool = Object.keys(TEMPLATES).filter(k => !['widmo', 'kupiec', 'tratwa'].includes(k) && (!o.arche || TEMPLATES[k].arche === o.arche));
+    const pool = Object.keys(TEMPLATES).filter(k => !NPC_ONLY.includes(k) && (!o.arche || TEMPLATES[k].arche === o.arche));
     const cands = pool.map(k => ({ k, cost: Design.value(Design.fromRows(TEMPLATES[k].rows, q)) }));
     cands.sort((x, y) => y.cost - x.cost);
     let choice = cands.find(c => c.cost <= budget * (1.05 + rng() * 0.15)) || cands[cands.length - 1];

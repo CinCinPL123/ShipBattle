@@ -5,10 +5,7 @@
    Zmiany idą na serwer jako operacje; klient od razu pokazuje
    wynik, a odpowiedź serwera go potwierdza.
    ========================================================= */
-const YTABS = [
-  { id: 'hull', name: 'KADŁUB' }, { id: 'weapon', name: 'BROŃ' }, { id: 'drive', name: 'NAPĘD' },
-  { id: 'gear', name: 'SPRZĘT' }, { id: 'hold', name: 'ŁADOWNIA' }
-];
+const YTABS = CATS.map(c => ({ id: c.id, name: c.name })).concat([{ id: 'hold', name: 'ŁADOWNIA' }]);
 let YARD_BG = null;
 function buildYardBg() {
   const [c, x] = makeCanvas(W, H);
@@ -49,16 +46,17 @@ class YardUI {
     this.btnMirror = { x: 474, y: 226, w: 50, h: 15, label: 'LUSTRO' };
     this.btnRepair = { x: 528, y: 226, w: 104, h: 15, label: 'NAPRAW' };
     this.btnSell = { x: 474, y: 246, w: 158, h: 15, label: 'SPRZEDAJ' };
-    this.tabBtns = YTABS.map((tb, i) => ({ x: 8 + (i < 3 ? i * 54 : (i - 3) * 81), y: i < 3 ? 32 : 47, w: i < 3 ? 52 : 79, h: 13, label: tb.name, i }));
+    this.tabBtns = YTABS.map((tb, i) => ({ x: 8 + (i % 3) * 54, y: i < 3 ? 32 : 47, w: 52, h: 13, label: tb.name, i }));
     this.qBtns = [0, 1, 2].map(q => ({ x: 52 + q * 40, y: 241, w: 38, h: 12, label: QUAL[q].name.slice(0, 5).toUpperCase(), q }));
     if (!YARD_BG) buildYardBg();
   }
   get L() { return YardUI.BASIN; }
+  get isHold() { return YTABS[this.tab].id === 'hold'; }
   setState(m) {
     if (m.err) this.say(m.err, true);
     this.pending = Math.max(0, this.pending - (m.quiet ? 0 : 1));
     if (this.pending > 0 && !m.err) return;
-    this.st = { gold: m.g, hold: m.h, cells: Design.decode(m.d), dead: new Set(m.x), rc: m.rc, port: m.port };
+    this.st = { gold: m.g, hold: m.h, cap: m.cap || MAX_HOLD, cells: Design.decode(m.d), dead: new Set(m.x), rc: m.rc, port: m.port };
     this.refresh();
   }
   refresh() {
@@ -151,7 +149,7 @@ class YardUI {
     const hs = this.sel.src === 'hold';
     this.btnSell.hidden = !hs;
     if (hs) this.btnSell.label = 'SPRZEDAJ  +' + sellValue(this.sel.p, this.sel.q);
-    this.qBtns.forEach(b => { b.active = this.sel.src === 'shop' && this.sel.q === b.q; b.hidden = this.tab === 4 || (this.sel.src === 'shop' && !hasQ(this.sel.p)); });
+    this.qBtns.forEach(b => { b.active = this.sel.src === 'shop' && this.sel.q === b.q; b.hidden = this.isHold || (this.sel.src === 'shop' && !hasQ(this.sel.p)); });
     this.tabBtns.forEach(b => { b.active = b.i === this.tab; });
     const c = UI.updateButtons([this.btnClose, this.btnMirror, this.btnRepair, this.btnSell].concat(this.tabBtns, this.qBtns).filter(b => !b.hidden));
     if (c === this.btnClose) return 'close';
@@ -164,7 +162,7 @@ class YardUI {
     this.hoverItem = null;
     const rects = this.itemRects();
     for (const r of rects) if (Input.inRect(r.x, r.y, r.w, r.h)) { this.hoverItem = r.it; if (m.pressed[0]) this.select(r.it); }
-    if (this.tab === 4 && m.wheel && Input.inRect(4, 60, 168, 180)) this.holdScroll = clamp(this.holdScroll + m.wheel, 0, Math.max(0, st.hold.length - 8));
+    if (this.isHold && m.wheel && Input.inRect(4, 60, 168, 180)) this.holdScroll = clamp(this.holdScroll + m.wheel, 0, Math.max(0, st.hold.length - 8));
     // siatka
     const cell = this.cellAt(m.x, m.y);
     this.hover = m.active ? cell : null;
@@ -183,7 +181,7 @@ class YardUI {
   }
   toggleMirror() { this.mirror = !this.mirror; this.say(this.mirror ? 'Lustro WŁĄCZONE - części stawiasz parami' : 'Lustro WYŁĄCZONE', false); SFX.play('click'); this.ghostKey = null; }
   items() {
-    if (this.tab === 4) return this.st.hold.slice(this.holdScroll, this.holdScroll + 8).map(h => ({ src: 'hold', p: h[0], q: h[1], n: h[2] }));
+    if (this.isHold) return this.st.hold.slice(this.holdScroll, this.holdScroll + 8).map(h => ({ src: 'hold', p: h[0], q: h[1], n: h[2] }));
     const cat = CATS[this.tab];
     return cat.parts.filter(p => !PARTS[p].noShop).map(p => ({ src: 'shop', p, q: hasQ(p) ? (this.sel.src === 'shop' && hasQ(this.sel.p) ? this.sel.q : this.q) : 0 }));
   }
@@ -303,7 +301,8 @@ class YardUI {
     if (!afford) { ctx.fillStyle = 'rgba(24,20,37,0.55)'; ctx.fillRect(x + 1, y + 1, 20, h - 2); }
     const nm = P.name.length > 17 ? P.name.slice(0, 16) + '…' : P.name;
     Font.draw(ctx, nm, x + 21, y + 3, { color: afford ? (it.q ? qc : PAL.white) : PAL.grey, shadow: PAL.black });
-    Font.draw(ctx, it.src === 'hold' ? (hasQ(it.p) ? QUAL[it.q].name : 'materiał') : (P.tag || ''), x + 21, y + 12, { color: it.src === 'hold' ? qc : PAL.grey });
+    const kind = hasQ(it.p) ? QUAL[it.q].name : P.relic ? 'Relikwia' : P.cat === 'hull' ? 'materiał' : 'część';
+    Font.draw(ctx, it.src === 'hold' ? kind : (P.tag || ''), x + 21, y + 12, { color: it.src === 'hold' ? (P.relic ? PAL.gold : qc) : PAL.grey });
     if (it.src === 'hold') Font.draw(ctx, '×' + it.n, x + w - 4, y + 3, { color: PAL.white, align: 'right', shadow: PAL.black });
     else {
       ctx.drawImage(Icons.coin, x + w - 4 - Font.measure(String(price)) - 9, y + 4);
@@ -316,9 +315,9 @@ class YardUI {
     for (const b of this.tabBtns) UI.button(ctx, b);
     const rects = this.itemRects();
     for (const r of rects) this.drawItemCard(ctx, r, col);
-    if (this.tab === 4) {
+    if (this.isHold) {
       if (!this.st.hold.length) Font.drawWrapped(ctx, 'Ładownia jest pusta. Rozbijaj beczki i zatapiaj okręty - łupy pływają po wodzie, wystarczy po nie podpłynąć.', 12, 70, 152, { color: PAL.grey, lh: 10 });
-      else Font.draw(ctx, this.st.hold.reduce((s, h) => s + h[2], 0) + ' / ' + MAX_HOLD + '  (kółko - przewiń)', 12, 236, { color: PAL.grey });
+      else Font.draw(ctx, this.st.hold.reduce((s, h) => s + h[2], 0) + ' / ' + this.st.cap + '  (kółko - przewiń)', 12, 236, { color: PAL.grey });
     } else {
       const hq = hasQ(this.sel.p) && this.sel.src === 'shop';
       if (hq) { Font.draw(ctx, 'JAKOŚĆ', 12, 243, { color: PAL.sand }); for (const b of this.qBtns) { UI.button(ctx, b); ctx.fillStyle = QUAL[b.q].col; ctx.fillRect(b.x + 2, b.y + b.h - 3, b.w - 4, 1); } }
@@ -333,10 +332,16 @@ class YardUI {
     if (hasQ(it.p)) Font.draw(ctx, QUAL[q].name, x + 6, y + 15, { color: q ? mixHex(QUAL[q].col, '#000000', 0.25) : PAL.woodD });
     if (P.rule) Font.draw(ctx, RULE_TAG[P.rule], x + w - 6, y + 5, { color: PAL.red, align: 'right' });
     Font.drawWrapped(ctx, P.desc, x + 6, y + 26, w - 12, { color: PAL.woodD, lh: 9 });
-    let line = 'Masa ' + P.mass + ' · Wypór ' + P.buoy + ' · Wytrz. ' + partHp(it.p, q);
+    const hp = ' · Wytrz. ' + partHp(it.p, q), pw = QUAL[q].pow;
+    let line = 'Masa ' + P.mass + ' · Wypór ' + P.buoy + hp;
     const Wd = WEAPONS[P.w];
-    if (Wd) line = 'Obr. ' + Math.round(Wd.dmg * (Wd.pel || 1) * QUAL[q].dmg) + ' · Ład. ' + (Wd.reload * QUAL[q].rl).toFixed(1) + 's · Wytrz. ' + partHp(it.p, q);
-    if (it.p === 'mast') line = 'Siła żagla ' + Math.round(26 * QUAL[q].pow) + ' · Wytrz. ' + partHp(it.p, q);
+    if (Wd) line = (Wd.mine ? 'Mina ' : 'Obr. ') + Math.round(Wd.dmg * (Wd.pel || 1) * QUAL[q].dmg) + ' · Ład. ' + (Wd.reload * QUAL[q].rl).toFixed(1) + 's' + hp;
+    if (it.p === 'mast') line = 'Siła żagla ' + Math.round(26 * pw) + hp;
+    if (it.p === 'jib') line = 'Żagiel ' + Math.round(12 * pw) + ' · Zwrot +' + Math.round(30 * pw) + '%' + hp;
+    if (it.p === 'steam') line = 'Ciąg ' + Math.round(20 * pw) + ' · Masa ' + P.mass + hp;
+    if (it.p === 'armory') line = 'Obrażenia +' + Math.round(25 * pw) + '%' + hp;
+    if (it.p === 'crane') line = 'Ładownia +' + CRANE_HOLD + hp;
+    if (P.relic) line = 'Relikwia' + hp;
     Font.draw(ctx, line, x + 6, y + h - 11, { color: PAL.rust });
   }
   statRows() {
@@ -372,6 +377,8 @@ class YardUI {
     if (s.ph.sail + s.ph.oar === 0 && s.n > 1) wr.push(['Brak napędu: maszt lub wiosła', PAL.gold]);
     if (st.blocked.size) wr.push(['Zasłonięte części: ' + st.blocked.size, PAL.red2]);
     if (st.dead.size) wr.push(['Zniszczone części: ' + st.dead.size, PAL.salmon]);
+    if (st.hold.some(h => isRelic(h[0]))) wr.push(['Masz relikwię w ładowni!', PAL.gold]);
+    else if (s.relic && s.relic.size) wr.push(['Relikwie: ' + s.relic.size, PAL.gold]);
     wr.slice(0, 1).forEach((w, i) => Font.draw(ctx, w[0], 474, 205 + i * 10, { color: w[1], shadow: PAL.black }));
     for (const b of [this.btnMirror, this.btnRepair, this.btnSell]) if (!b.hidden) UI.button(ctx, b);
     UI.panel(ctx, 472, 266, 160, 86, 'dark');

@@ -213,6 +213,39 @@ const SOUNDS = {
     for (let i = 0; i < 3; i++) S.nz({ type: 'highpass', f0: 2600, dur: 0.03, vol: 0.3, at: i * 0.04, dest: d });
   },
   shield(S, o) { S.tone({ wave: 'sine', f0: 1760, f1: 1320, dur: 0.25, vol: 0.12, dest: S.out(panX(o.x)) }); },
+  rocket(S, o) {
+    const d = S.out(panX(o.x));
+    S.nz({ type: 'bandpass', f0: 800, f1: 3000, q: 1, dur: 0.5, vol: 0.4, att: 0.02, dest: d });
+    S.nz({ type: 'highpass', f0: 3000, dur: 0.08, vol: 0.3, dest: d });
+  },
+  flame(S, o) {
+    const d = S.out(panX(o.x));
+    S.nz({ type: 'lowpass', f0: 1200, f1: 400, dur: 0.45, vol: 0.5, att: 0.03, dest: d });
+    S.nz({ type: 'highpass', f0: 4000, dur: 0.3, vol: 0.12, dest: d });
+  },
+  bombard(S, o) {
+    const d = S.out(panX(o.x));
+    S.nz({ type: 'lowpass', f0: 1800, f1: 60, dur: 1.1, vol: 1, dest: d });
+    S.tone({ wave: 'sine', f0: 70, f1: 22, dur: 0.8, vol: 1, dest: d });
+    S.tone({ wave: 'triangle', f0: 45, f1: 25, dur: 0.9, vol: 0.5, at: 0.03, dest: d });
+  },
+  harpoon(S, o) {
+    const d = S.out(panX(o.x));
+    S.nz({ type: 'bandpass', f0: 1800, f1: 600, q: 2, dur: 0.25, vol: 0.4, dest: d });
+    S.tone({ wave: 'triangle', f0: 300, f1: 120, dur: 0.2, vol: 0.3, dest: d });
+  },
+  kraken(S, o) {
+    const d = S.out(panX(o.x));
+    S.tone({ wave: 'sawtooth', f0: 70, f1: 40, dur: 2, vol: 0.25, att: 0.3, hold: 1.2, dest: d });
+    S.tone({ wave: 'sawtooth', f0: 104, f1: 60, dur: 2, vol: 0.12, att: 0.3, hold: 1.2, dest: d });
+    S.nz({ type: 'lowpass', f0: 500, f1: 80, dur: 2.2, vol: 0.6, att: 0.2, dest: d });
+  },
+  mine(S, o) {
+    const d = S.out(panX(o.x));
+    S.nz({ type: 'bandpass', f0: 700, f1: 250, q: 1, dur: 0.3, vol: 0.4, dest: d });
+    S.tone({ wave: 'square', f0: 220, dur: 0.05, vol: 0.06, at: 0.25, dest: d });
+  },
+  buoy(S) { [784, 1175, 1568].forEach((f, i) => S.tone({ wave: 'triangle', f0: f, dur: 0.2, vol: 0.12, at: i * 0.07 })); },
   ready(S) { [523, 659, 784, 1047].forEach((f, i) => S.tone({ wave: 'square', f0: f, dur: 0.12, vol: 0.07, at: i * 0.06 })); }
 };
 

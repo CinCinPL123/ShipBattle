@@ -56,12 +56,44 @@ const OVL = {
   keg: ['........', '..kkkk..', '.kdbbdk.', '.kbrrbk.', '.kbrrbk.', '.kdbbdk.', '..kkkk..', '........'],
   carp: ['......G.', '.kkkkGGG', '.kdlldG.', '.klddlk.', '.klddlk.', '.kdlldk.', '.kkkkkk.', '........'],
   nest: ['........', '..kkkk..', '.kllllk.', '.klkklk.', '.klkklk.', '.kllllk.', '..kkkk..', '........'],
-  core: ['.kkkkkk.', 'kTTTTTTk', 'kLLLLLLk', 'kTTTTTTk', 'kTTyyTTk', 'kTTTTTTk', 'kDDDDDDk', '.kkkkkk.']
+  core: ['.kkkkkk.', 'kTTTTTTk', 'kLLLLLLk', 'kTTTTTTk', 'kTTyyTTk', 'kTTTTTTk', 'kDDDDDDk', '.kkkkkk.'],
+  bombard: ['........', '.nnnnnn.', 'nkkkkkkn', 'nkddddkn', 'nkddddkn', 'nkkkkkkn', '.nnnnnn.', '........'],
+  rocket: ['........', '........', '.nkkkkn.', '.nrdrdn.', '.kddddk.', '.nrdrdn.', '.nkkkkn.', '........'],
+  flame: ['........', '...oo...', '..nkkn..', '..nrrn..', '..krok..', '..nrrn..', '..nkkn..', '........'],
+  harpoon: ['........', '...nn...', '.l.kk.l.', '.lkddkl.', '..kddk..', '..nddn..', '...nn...', '........'],
+  mines: ['........', '..kkkk..', '.kxxxxk.', '.kxrrxk.', '.kxxxxk.', '.kxxxxk.', '..kddk..', '........'],
+  jib: ['...dd...', '...dd...', '..kddk..', '..kbbk..', '..kbbk..', '..kddk..', '........', '........'],
+  steam: ['..xxxx..', '.xssssx.', '.xsxxsx.', '.xsxxsx.', '.xssssx.', '.krrrrk.', '.kddddk.', '........'],
+  armory: ['........', '.kkkkkk.', '.kSddSk.', '.kdSSdk.', '.kdSSdk.', '.kSddSk.', '.kkkkkk.', '........'],
+  crane: ['......d.', '.....dd.', '....d.d.', '...d..d.', '..kkkkd.', '.kdbbdk.', '.kkkkkk.', '........'],
+  kraken: ['.mmmmmm.', 'mPWWWPPm', 'mPWWWWPm', 'mPPWWWPm', 'mPPWWPPm', 'mPPPWPPm', 'mPPPPPPm', '.mmmmmm.'],
+  lantern: ['...kk...', '..kkkk..', '.khhhhk.', '.khWWhk.', '.khWWhk.', '.khhhhk.', '..kkkk..', '...kk...'],
+  figure: ['...YY...', '..YyyY..', '..YyyY..', '...YY...', '..YYYY..', '.Y.YY.Y.', '...YY...', '..Y..Y..'],
+  dread: ['x.......', 'xxxxxxx.', 'xxWWWxx.', 'xxWxWxx.', 'xxxWxxx.', 'xxWxWxx.', 'xxxxxxx.', 'x.......'],
+  storm: ['...kk...', '...ss...', '..suus..', '.suyUus.', '.suUyus.', '.suyuus.', '.suuuus.', '..ssss..'],
+  pearl: ['........', '..iiii..', '.iWWWWi.', 'iWWUWWWi', 'iWWWWWUi', '.iWWWWi.', '..iiii..', '........']
 };
 function ovlColors(col, q) {
   const tr = TRIMQ[q || 0];
   return { k: tr || PAL.woodDD, d: PAL.woodD, b: PAL.wood, l: PAL.woodL, n: tr || PAL.navy, g: PAL.grey, s: PAL.slate, S: PAL.silver, x: PAL.black,
-    r: PAL.red2, o: PAL.orange, e: PAL.skin, w: PAL.silver, W: PAL.white, G: PAL.green, T: col.c, L: col.l, D: col.d, t: col.c, y: PAL.yellow };
+    r: PAL.red2, o: PAL.orange, e: PAL.skin, w: PAL.silver, W: PAL.white, G: PAL.green, T: col.c, L: col.l, D: col.d, t: col.c, y: PAL.yellow,
+    m: '#3a1d40', P: '#68386c', h: PAL.ghost, Y: PAL.gold, u: '#2a9df0', U: '#8fd3ff', i: '#e98bc4' };
+}
+// relikwie na okręcie (tylko całe bloki) i to, jak zmieniają wygląd
+function relicsOf(blocks) {
+  const R = new Set();
+  for (const b of blocks) if (b.alive !== false && PARTS[b.p].relic) R.add(b.p);
+  return R;
+}
+function relicTrim(R) {
+  if (!R.size) return null;
+  const t = {};
+  if (R.has('kraken')) { t.edge = '#3a1d40'; t.rail = '#68386c'; t.rail2 = '#8a4a8c'; }
+  else if (R.has('lantern')) t.edge = '#12463f';
+  else if (R.has('dread')) t.edge = '#0e0e16';
+  else if (R.has('pearl')) t.edge = '#10305a';
+  if (R.has('figure')) { t.rail = '#c27a1f'; t.rail2 = '#feae34'; }
+  return t.edge || t.rail ? t : null;
 }
 const _ovlCache = new Map();
 function ovlCol(col, q) { const k = col.c + q; let v = _ovlCache.get(k); if (!v) { v = ovlColors(col, q); _ovlCache.set(k, v); } return v; }
@@ -97,6 +129,7 @@ const RAMQ = [[PAL.grey, PAL.silver, PAL.navy], [PAL.silver, PAL.white, PAL.slat
 
 // bloki: [{p, q, c, r, hp?, max?, broken?, burnt?, alive?}] -> {img, sil, foam}
 function renderShip(blocks, col) {
+  const trim = relicTrim(relicsOf(blocks));
   const occ = new Int16Array(COLS * ROWS).fill(-1);
   blocks.forEach((b, k) => { if (b.alive !== false) occ[b.r * COLS + b.c] = k; });
   const has = (c, r) => c >= 0 && c < COLS && r >= 0 && r < ROWS && occ[r * COLS + c] >= 0;
@@ -143,10 +176,10 @@ function renderShip(blocks, col) {
       const R = RAMQ[b.q || 0], s = -1 - lj;
       c = (li === RAM_SPIKE[s][0] || li === RAM_SPIKE[s][1] || s === 3) ? R[2] : (li === 3 ? R[1] : R[0]);
     } else if (ed[i] === 1) {
-      c = metal ? M.edge : D.edge;
+      c = trim && trim.edge ? trim.edge : metal ? M.edge : D.edge;
       const br = b.broken || 0;
       if (br && (((br & 1) && lj < 3) || ((br & 2) && lj > 4) || ((br & 4) && li < 3) || ((br & 8) && li > 4))) c = hash2(xx, y) < 0.55 ? PAL.woodL : PAL.woodD;
-    } else if (ed[i] === 2) c = metal ? M.rail : ((li <= 1 || lj <= 1) ? D.rail2 : D.rail);
+    } else if (ed[i] === 2) c = trim && trim.rail ? ((li <= 1 || lj <= 1) ? trim.rail2 : trim.rail) : metal ? M.rail : ((li <= 1 || lj <= 1) ? D.rail2 : D.rail);
     else c = metal ? metalColor(M, clamp(li, 0, 7), clamp(lj, 0, 7), xx, y) : deckColor(D, xx, y);
     const c3 = hexRgb(c), o = i * 4;
     d[o] = c3[0]; d[o + 1] = c3[1]; d[o + 2] = c3[2]; d[o + 3] = 255;
@@ -188,17 +221,19 @@ function renderShip(blocks, col) {
 
 // ---------- ruchome elementy (we współrzędnych sprite'a) ----------
 const DIRV = { U: [0, -1], D: [0, 1], L: [-1, 0], R: [1, 0] };
-const GUN_SHAPE = { cannon: [7, 2], longgun: [10, 2], carro: [4, 3], firegun: [6, 2], chain: [6, 3], swivel: [5, 1] };
+const GUN_SHAPE = { cannon: [7, 2], longgun: [10, 2], carro: [4, 3], firegun: [6, 2], chain: [6, 3], swivel: [5, 1], rocket: [4, 3], flame: [5, 2], bombard: [6, 4], harpoon: [8, 1] };
 function drawBarrel(ctx, cx, cy, dir, rec, p, q) {
   const v = DIRV[dir], dx = v[0], dy = v[1], r = Math.round(rec), G = GUNQ[q || 0];
-  const sh = GUN_SHAPE[p] || GUN_SHAPE.cannon, len = sh[0] + (p === 'carro' ? (q >> 1) : q || 0), wid = sh[1];
+  const sh = GUN_SHAPE[p] || GUN_SHAPE.cannon, len = sh[0] + (p === 'carro' || p === 'bombard' || p === 'rocket' ? (q >> 1) : q || 0), wid = sh[1];
   for (let s = -1; s <= len; s++) {
     const k = s - r, X = cx + dx * k, Y = cy + dy * k, end = s >= len - 1;
     for (let w = 0; w < wid; w++) {
       const off = w - (wid >> 1), dark = w === wid - 1 && wid > 1;
-      if (p === 'chain' && w === 1) continue; // dwie lufy z przerwą
+      if ((p === 'chain' || p === 'rocket') && w === 1) continue; // dwie lufy z przerwą
       ctx.fillStyle = end ? (dark ? G.b : G.tip) : (dark ? G.a : G.b);
-      if (p === 'firegun' && end && !dark) ctx.fillStyle = PAL.orange;
+      if ((p === 'firegun' || p === 'flame') && end && !dark) ctx.fillStyle = PAL.orange;
+      if (p === 'rocket' && end) ctx.fillStyle = PAL.red2;
+      if (p === 'harpoon') ctx.fillStyle = s === len ? PAL.white : end ? PAL.silver : PAL.woodL;
       if (dx !== 0) ctx.fillRect(X, cy + off, 1, 1); else ctx.fillRect(cx + off, Y, 1, 1);
     }
   }
@@ -237,6 +272,10 @@ function drawShipDyn(ctx, blocks, o) {
     } else if (b.p === 'nest') {
       ctx.fillStyle = PAL.woodDD; ctx.fillRect(cx - 1, cy - 1, 2, 2);
       if (Math.sin(t * 2 + b.r) > 0) { ctx.fillStyle = PAL.skin; ctx.fillRect(cx + 1, cy - 2, 1, 1); }
+    } else if (b.p === 'jib') {
+      pline(ctx, cx, cy - 2, cx, cy - 13, PAL.woodDD, 2); pline(ctx, cx, cy - 2, cx, cy - 13, PAL.woodL);
+    } else if (b.p === 'lantern') {
+      ctx.fillStyle = Math.sin(t * 5 + b.c) > -0.3 ? '#d8fff0' : PAL.ghost; ctx.fillRect(cx - 1, cy - 1, 2, 2);
     }
   }
 }
@@ -248,13 +287,20 @@ const SAILQ = [
   { w: 32, d: [0, 4, 7, 9], body: '#2a2030', hi: '#4a3a50', lo: PAL.black, seam: PAL.red, stripe: PAL.gold, trim: PAL.gold },
   { w: 34, d: [0, 4, 7, 10], body: PAL.ghost, hi: '#d8fff0', lo: PAL.ghostD, seam: PAL.ghostDD, tatter: true }
 ];
+// żagle zmienione przez relikwie (rozmiar zostaje z jakości masztu)
+const SAIL_SKIN = {
+  storm: { body: '#262b44', hi: '#3a4466', lo: PAL.black, seam: '#10305a', stripe: null, bolt: PAL.yellow, trim: PAL.cyan, tatter: false },
+  lantern: { body: PAL.ghost, hi: '#d8fff0', lo: PAL.ghostD, seam: PAL.ghostDD, stripe: null, trim: null, tatter: true },
+  dread: { body: '#1e1e2a', hi: '#3a3a4a', lo: PAL.black, seam: PAL.red, stripe: PAL.red2, trim: PAL.red, tatter: false }
+};
+function sailSkin(R) { return R.has('storm') ? 'storm' : R.has('lantern') ? 'lantern' : R.has('dread') ? 'dread' : ''; }
 const Sails = {
   cache: new Map(),
-  get(col, lvl, q, shadow) {
-    const key = col.c + ':' + lvl + ':' + q + ':' + (shadow ? 1 : 0);
+  get(col, lvl, q, shadow, skin) {
+    const key = col.c + ':' + lvl + ':' + q + ':' + (shadow ? 1 : 0) + ':' + (skin || '');
     let c = this.cache.get(key); if (c) return c;
-    if (shadow) { c = tintSprite(this.get(col, lvl, q, false), PAL.black, 1); this.cache.set(key, c); return c; }
-    const S = SAILQ[q], Wd = S.w + 2, Hh = 14, yard = 11, D = S.d[lvl];
+    if (shadow) { c = tintSprite(this.get(col, lvl, q, false, skin), PAL.black, 1); this.cache.set(key, c); return c; }
+    const S = skin ? Object.assign({}, SAILQ[q], SAIL_SKIN[skin]) : SAILQ[q], Wd = S.w + 2, Hh = 14, yard = 11, D = S.d[lvl];
     const cl = v => v === 'c' ? col.c : v === 'l' ? col.l : v === 'd' ? col.d : v;
     const [cv, x] = makeCanvas(Wd, Hh);
     if (lvl === 0) {
@@ -273,6 +319,7 @@ const Sails = {
           let c = k > 0.82 ? S.hi : k < 0.3 ? S.lo : S.body;
           if (S.stripe && lvl >= 2 && k > 0.38 && k < 0.66) c = S.stripe;
           if (i % 6 === 0 && k <= 0.82) c = S.seam;
+          if (S.bolt && y === yard - Math.max(1, Math.round(bul * (((i >> 1) & 1) ? 0.62 : 0.38)))) c = S.bolt;
           if (S.tatter && hash2(i, y) < 0.06) continue;
           x.fillStyle = cl(c); x.fillRect(i, y, 1, 1);
         }
@@ -287,25 +334,42 @@ const Sails = {
 };
 function drawSails(ctx, blocks, o) {
   const lvl = clamp(Math.round(o.sail === undefined ? 3 : o.sail), 0, 3);
+  const skin = o.skin !== undefined ? o.skin : sailSkin(relicsOf(blocks));
   for (const b of blocks) {
-    if (b.alive === false || b.p !== 'mast') continue;
+    if (b.alive === false) continue;
+    if (b.p === 'jib') { drawJib(ctx, b, lvl, o, skin); continue; }
+    if (b.p !== 'mast') continue;
     const cx = PAD + b.c * TILE + 4, cy = PAD + b.r * TILE + 4, q = b.q || 0, S = SAILQ[q];
     ctx.save();
     ctx.translate(cx, cy); ctx.rotate(o.yaw || 0);
-    if (q === 4 && !o.shadow) ctx.globalAlpha *= 0.82;
-    ctx.drawImage(Sails.get(o.col, lvl, q, o.shadow), -(S.w + 2) / 2, -11);
+    if ((q === 4 || skin === 'lantern') && !o.shadow) ctx.globalAlpha *= 0.82;
+    ctx.drawImage(Sails.get(o.col, lvl, q, o.shadow, skin), -(S.w + 2) / 2, -11);
     ctx.restore();
   }
 }
-function drawFlag(ctx, x, y, rel, col, t) {
+// trójkątny fok na bukszprycie
+function drawJib(ctx, b, lvl, o, skin) {
+  const cx = PAD + b.c * TILE + 4, cy = PAD + b.r * TILE + 4, q = b.q || 0;
+  const S = skin ? Object.assign({}, SAILQ[q], SAIL_SKIN[skin]) : SAILQ[q], col = o.col;
+  const cl = v => v === 'c' ? col.c : v === 'l' ? col.l : v === 'd' ? col.d : v;
+  const side = (o.yaw || 0) >= 0 ? 1 : -1, top = cy - 12, h = 13, wmax = lvl === 0 ? 1 : 3 + lvl + (q >> 1);
+  for (let j = 0; j < h; j++) {
+    const w = Math.max(1, Math.round(wmax * j / (h - 1)));
+    for (let i = 1; i <= w; i++) {
+      ctx.fillStyle = o.shadow ? PAL.black : cl(i === w ? S.lo : j < 2 ? S.hi : S.body);
+      ctx.fillRect(cx + side * i, top + j, 1, 1);
+    }
+  }
+}
+function drawFlag(ctx, x, y, rel, col, t, style) {
   ctx.save(); ctx.translate(x, y); ctx.rotate(rel);
   ctx.fillStyle = PAL.woodDD; ctx.fillRect(-1, -1, 2, 2);
-  const pirate = col === SHIP_COLORS[COL_PIRATE], ghost = col === SHIP_COLORS[COL_GHOST];
-  for (let s = 1; s <= 7; s++) {
+  const dread = style === 'dread', pirate = col === SHIP_COLORS[COL_PIRATE] || dread, ghost = col === SHIP_COLORS[COL_GHOST];
+  for (let s = 1; s <= (dread ? 9 : 7); s++) {
     const wv = Math.round(Math.sin(t * 9 - s * 0.9) * (s / 7) * 1.4);
     const w = s < 6 ? 3 : 2;
     if (ghost && (s === 4 || s === 7) && Math.sin(t * 3 + s) > 0) continue;
-    ctx.fillStyle = pirate ? (s === 3 || s === 4 ? PAL.white : PAL.black) : s === 1 ? col.d : (s & 1) ? col.c : col.l;
+    ctx.fillStyle = pirate ? (s === 3 || s === 4 ? (dread ? PAL.red2 : PAL.white) : PAL.black) : s === 1 ? col.d : (s & 1) ? col.c : col.l;
     ctx.fillRect(-1 + wv, -s - 1, w, 1);
   }
   ctx.restore();
@@ -339,6 +403,11 @@ const PartIcons = {
         x.fillStyle = (i === RAM_SPIKE[s][0] || i === RAM_SPIKE[s][1] || s === 3) ? R[2] : (i === 3 ? R[1] : R[0]);
         x.fillRect(ox + i, oy - 1 - s, 1, 1);
       }
+    }
+    if (p === 'jib') {
+      pline(x, ox + 4, oy + 3, ox + 4, oy - 3, PAL.woodL);
+      const bd = SAILQ[q].body;
+      for (let j = 0; j < 6; j++) for (let i = 1; i <= Math.round(j * 0.8) + 1; i++) { x.fillStyle = j < 1 ? PAL.white : bd === 'c' ? col.c : bd; x.fillRect(ox + 4 + i, oy - 3 + j, 1, 1); }
     }
     if (p === 'mast') {
       const S = SAILQ[q], w = Math.min(15, Math.round(S.w / 2)), yard = oy + 6, cl = v => v === 'c' ? col.c : v === 'l' ? col.l : v === 'd' ? col.d : v;
